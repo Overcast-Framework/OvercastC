@@ -3,10 +3,10 @@
 #include "ocpch.h"
 #include "lexer.h"
 const std::unordered_map<TokenType, std::regex> tokenPatterns = {
-	{ TokenType::KEYWORD, std::regex("\\b(func|if|else|while|return|struct|use|let|var|mut|const|export|extern|import|package)\\b") },
+	{ TokenType::KEYWORD, std::regex("\\b(func|if|else|while|for|return|struct|use|let|var|mut|const|export|extern|import|package)\\b") },
 	{ TokenType::IDENTIFIER, std::regex("[a-zA-Z_][a-zA-Z0-9_]*") },
 	{ TokenType::ARROW, std::regex("(->|<-)") },
-	{ TokenType::OPERATOR, std::regex("[+\\-*/=<>!&|^%]") },
+	{ TokenType::OPERATOR, std::regex("(==|!=|<=|>=|\\+=|-=|\\*=|/=|&&|\\|\\||\\+\\+|--|%=|&=|\\|=|\\^=|[+\\-*/=<>!&|^%])") },
 	{ TokenType::SYMBOL, std::regex("[\\/<>!&|^%(){}\\[\\],.:;]") },
 	{ TokenType::INTEGER, std::regex("\\b[0-9]+\\b") },
 	{ TokenType::STRING, std::regex("\".*?\"") },

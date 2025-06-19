@@ -18,7 +18,8 @@ std::vector<std::unique_ptr<Statement>> Overcast::Parser::Parser::Parse()
 std::unique_ptr<Expression> Overcast::Parser::Parser::ParseExpression(int precedence)
 {
 	auto lhs = ParsePrimaryExpression();
-    while (currentToken->Type == TokenType::OPERATOR && GetPrecedence(*currentToken) >= precedence)
+    Token tokenCopy = *currentToken; // to avoid a really weird issue
+    while (currentToken->Type == TokenType::OPERATOR && GetPrecedence(tokenCopy) >= precedence)
     {
         auto op = Match(TokenType::OPERATOR);
         auto opPrec = GetPrecedence(op);
@@ -97,6 +98,18 @@ std::unique_ptr<Statement> Overcast::Parser::Parser::ParseStatement()
             {
                 return ParseConstDeclStatement();
             }
+			else if (currentToken->Lexeme == "if") // if statement
+			{
+				return ParseIfStatement();
+			}
+			else if (currentToken->Lexeme == "while" || currentToken->Lexeme == "for") // loop statement
+			{
+				throw std::runtime_error("Loop statements are not implemented yet.");
+			}
+			else if (currentToken->Lexeme == "use" || currentToken->Lexeme == "import") // import statement
+			{
+				throw std::runtime_error("Import statements are not implemented yet.");
+			}
             break;
         }
         case TokenType::IDENTIFIER:
@@ -104,6 +117,10 @@ std::unique_ptr<Statement> Overcast::Parser::Parser::ParseStatement()
             {
                 return std::make_unique<ExpressionStatement>(ParseFuncInvokeExpr());
             }
+            if (Peek().Lexeme == "=")
+            {
+				return ParseVarSetStatement();
+			}
             break;
     }
 
@@ -148,10 +165,11 @@ std::vector<std::unique_ptr<Statement>> Overcast::Parser::Parser::ParseBlockStat
     while (currentToken->Lexeme != "}")
     {
         auto statement = ParseStatement();
+        if (statement->m_Type != Statement::Type::If)
+        {
+            Match(TokenType::SYMBOL, ";");
+        }
         blockContent.push_back(std::move(statement));
-
-        //if(statement.m_Type != ) add if statement exclusives
-        Match(TokenType::SYMBOL, ";");
     }
 
     Match(TokenType::SYMBOL, "}");
@@ -235,13 +253,32 @@ std::unique_ptr<VariableDeclStatement> Overcast::Parser::Parser::ParseVarDeclSta
     }
 }
 
-std::unique_ptr<VariableDeclStatement> Overcast::Parser::Parser::ParseVarSetStatement()
+std::unique_ptr<VariableSetStatement> Overcast::Parser::Parser::ParseVarSetStatement()
 {
 	auto varName = Match(TokenType::IDENTIFIER).Lexeme;
 	Match(TokenType::OPERATOR, "=");
 	auto value = ParseExpression();
-	Match(TokenType::SYMBOL, ";");
 	return std::make_unique<VariableSetStatement>(varName, std::move(value));
+}
+
+std::unique_ptr<IfStatement> Overcast::Parser::Parser::ParseIfStatement()
+{
+	Match(TokenType::KEYWORD, "if");
+    Match(TokenType::SYMBOL, "(");
+	auto condition = ParseExpression();
+	Match(TokenType::SYMBOL, ")");
+	auto body = ParseBlockStatement();
+	std::vector<std::unique_ptr<Statement>> elseBody;
+	if (currentToken->Lexeme == "else")
+	{
+		Match(TokenType::KEYWORD, "else");
+		if (currentToken->Lexeme == "if")
+		{
+			elseBody.push_back(ParseIfStatement());
+		}
+		elseBody = ParseBlockStatement();
+	}
+	return std::make_unique<IfStatement>(std::move(condition), std::move(body), std::move(elseBody));
 }
 
 std::unique_ptr<ReturnStatement> Overcast::Parser::Parser::ParseReturnStatement()

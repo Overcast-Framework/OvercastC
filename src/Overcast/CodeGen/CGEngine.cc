@@ -58,6 +58,8 @@ void Overcast::CodeGen::CGEngine::EmitToObjectFile(const std::string& outputFile
 
 	llvm::ModulePassManager modulePM = passBuilder.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
 
+	module->print(llvm::errs(), nullptr);
+
 	modulePM.run(*module, moduleAM);
 
 	std::error_code EC;
@@ -90,9 +92,21 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateStatement(Statement& statement
 	{
 		return GenerateVarDecl(*varDecl);
 	}
+	else if (auto varSet = dynamic_cast<VariableSetStatement*>(&statement))
+	{
+		return GenerateVarSet(*varSet);
+	}
+	else if (auto ifStmt = dynamic_cast<IfStatement*>(&statement))
+	{
+		return GenerateIfStatement(*ifStmt);
+	}
 	else if (auto constDecl = dynamic_cast<ConstDeclStatement*>(&statement))
 	{
 		throw std::runtime_error("Const declarations are not supported yet.");
+	}
+	else
+	{
+		throw std::runtime_error("Unsupported statement type for code generation.");
 	}
 }
 
@@ -162,6 +176,66 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateVarDecl(const VariableDeclStat
 	return varAlloca;
 }
 
+llvm::Value* Overcast::CodeGen::CGEngine::GenerateVarSet(const VariableSetStatement& varSet)
+{
+	auto* varAlloca = static_cast<llvm::AllocaInst*>(symbolTable[varSet.VarName]);
+	if (!varAlloca)
+	{
+		throw std::runtime_error("Variable " + varSet.VarName + " not found in symbol table.");
+	}
+
+	auto* value = GenerateExpression(*varSet.Value.get());
+	builder.CreateStore(value, varAlloca);
+
+	return varAlloca;
+}
+
+llvm::Value* Overcast::CodeGen::CGEngine::GenerateIfStatement(const IfStatement& ifStmt)
+{
+	llvm::Value* condition = GenerateExpression(*ifStmt.Condition.get());
+
+	if (!condition->getType()->isIntegerTy(1)) // must be bool (i1)
+	{
+		throw std::runtime_error("Condition in if statement must be of type bool.");
+	}
+
+	llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+	llvm::BasicBlock* thenBlock = llvm::BasicBlock::Create(context, "then", function);
+	llvm::BasicBlock* elseBlock = nullptr;
+	llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(context, "ifcont", function);
+
+	if (!ifStmt.ElseBody.empty()) {
+		elseBlock = llvm::BasicBlock::Create(context, "else", function);
+		builder.CreateCondBr(condition, thenBlock, elseBlock);
+	}
+	else {
+		builder.CreateCondBr(condition, thenBlock, mergeBlock);
+	}
+
+	builder.SetInsertPoint(thenBlock);
+	for (auto& stmt : ifStmt.Body) {
+		GenerateStatement(*stmt);
+	}
+	if (!thenBlock->getTerminator()) {
+		builder.CreateBr(mergeBlock);
+	}
+
+	if (elseBlock) {
+		builder.SetInsertPoint(elseBlock);
+		for (auto& stmt : ifStmt.ElseBody) {
+			GenerateStatement(*stmt);
+		}
+		if (!elseBlock->getTerminator()) {
+			builder.CreateBr(mergeBlock);
+		}
+	}
+
+	builder.SetInsertPoint(mergeBlock);
+
+	return nullptr;
+}
+
 llvm::Value* Overcast::CodeGen::CGEngine::GenerateExpression(Expression& expression)
 {
 	if (auto invFunc = dynamic_cast<InvokeFunctionExpr*>(&expression))
@@ -186,7 +260,8 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateExpression(Expression& express
 		}
 		if (symbolTable[varExpr->VariableName]->getName().starts_with("var:")) // var check
 		{
-			return builder.CreateLoad(symbolTable[varExpr->VariableName]->getType(), symbolTable[varExpr->VariableName], varExpr->VariableName);
+			llvm::Value* ptrValue = symbolTable[varExpr->VariableName];
+			return builder.CreateLoad(llvm::dyn_cast<llvm::AllocaInst>(ptrValue)->getAllocatedType(), ptrValue, varExpr->VariableName);
 		}
 
 		return symbolTable[varExpr->VariableName];
@@ -206,6 +281,24 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateExpression(Expression& express
 			return builder.CreateMul(lhs, rhs, "multmp");
 		else if (op == "/")
 			return builder.CreateSDiv(lhs, rhs, "divtmp");
+		else if (op == "%")
+			return builder.CreateSRem(lhs, rhs, "modtmp");
+		else if (op == "==")
+			return builder.CreateICmpEQ(lhs, rhs, "eqtmp");
+		else if (op == "!=")
+			return builder.CreateICmpNE(lhs, rhs, "netmp");
+		else if (op == "<")
+			return builder.CreateICmpSLT(lhs, rhs, "lttmp");
+		else if (op == "<=")
+			return builder.CreateICmpSLE(lhs, rhs, "letmp");
+		else if (op == ">")
+			return builder.CreateICmpSGT(lhs, rhs, "gttmp");
+		else if (op == ">=")
+			return builder.CreateICmpSGE(lhs, rhs, "getmp");
+		else if (op == "&&")
+			return builder.CreateAnd(lhs, rhs, "andtmp");
+		else if (op == "||")
+			return builder.CreateOr(lhs, rhs, "ortmp");
 		else
 			throw std::runtime_error("Unsupported binary operator.");
 	}

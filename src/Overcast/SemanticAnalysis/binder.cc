@@ -23,6 +23,43 @@ void Overcast::Semantic::Binder::Binder::BindStatement(const Statement& stmt)
 		this->BindExpression(*exprStmt.EncapsulatedExpr);
 		break;
 	}
+	case Statement::Type::VariableSet:
+	{
+		const VariableSetStatement& varSetStmt = static_cast<const VariableSetStatement&>(stmt);
+		Symbol varSymbol;
+		if (!this->Scopes.back().TryGetSymbol(varSetStmt.VarName, varSymbol))
+		{
+			throw std::runtime_error("Variable " + varSetStmt.VarName + " is not defined in this scope.");
+		}
+		auto& valueSymbol = this->BindExpression(*varSetStmt.Value);
+		if (valueSymbol.Type->to_string() != varSymbol.Type->to_string())
+		{
+			throw std::runtime_error("Type mismatch in variable assignment: expected " + varSymbol.Type->to_string() +
+				", but got " + valueSymbol.Type->to_string() + ".");
+		}
+		break;
+	}
+	case Statement::Type::If:
+	{
+		const IfStatement& ifStmt = static_cast<const IfStatement&>(stmt);
+		auto& conditionSymbol = this->BindExpression(*ifStmt.Condition);
+		if (conditionSymbol.Type->to_string() != "bool")
+		{
+			throw std::runtime_error("Condition in if statement must be of type bool, but got " + conditionSymbol.Type->to_string() + ".");
+		}
+		for (const auto& bodyStmt : ifStmt.Body)
+		{
+			this->BindStatement(*bodyStmt);
+		}
+		if (!ifStmt.ElseBody.empty())
+		{
+			for (const auto& elseStmt : ifStmt.ElseBody)
+			{
+				this->BindStatement(*elseStmt);
+			}
+		}
+		break;
+	}
 	case Statement::Type::Return:
 	{
 		const ReturnStatement& retStmt = static_cast<const ReturnStatement&>(stmt);
@@ -205,6 +242,12 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindBinar
 	if (leftSymbol.Type->to_string() != rightSymbol.Type->to_string())
 	{
 		throw std::runtime_error("Binary expression operands must be of the same type.");
+	}
+	if (binExpr.Operator == ">" || binExpr.Operator == "<" ||
+		binExpr.Operator == ">=" || binExpr.Operator == "<=" ||
+		binExpr.Operator == "==" || binExpr.Operator == "!=")
+	{
+		return Symbol("<binary_expr>", SymbolKind::Variable, IdentifierType::GetBoolType());
 	}
 	return Symbol("<binary_expr>", SymbolKind::Variable, leftSymbol.Type);
 }

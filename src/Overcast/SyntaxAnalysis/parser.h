@@ -33,7 +33,8 @@ namespace Overcast::Parser
 		std::vector<std::unique_ptr<Statement>> ParseBlockStatement();
 		std::unique_ptr<FunctionDeclStatement> ParseFunctionDeclStatement();
 		std::unique_ptr<VariableDeclStatement> ParseVarDeclStatement();
-		std::unique_ptr<VariableDeclStatement> ParseVarSetStatement();
+		std::unique_ptr<VariableSetStatement> ParseVarSetStatement();
+		std::unique_ptr<IfStatement> ParseIfStatement();
 		std::unique_ptr<ReturnStatement> ParseReturnStatement();
 		std::unique_ptr<ConstDeclStatement> ParseConstDeclStatement();
 
@@ -70,12 +71,22 @@ namespace Overcast::Parser
 				++currentToken;
 		}
 
-		inline int GetPrecedence(const Token& token)
+		inline int GetPrecedence(Token token)
 		{
+			std::cout << "currentToken pointer: " << &currentToken << std::endl;
 			if (token.Type != TokenType::OPERATOR) return -1;
-
+			std::cout << "currentToken pointer: " << &currentToken << std::endl;
 			std::string op = token.Lexeme;
 			if (op == "=") return 1;
+			else if (op == "->" || op == "<-") return 2;
+			else if (op == "||") return 3;
+			else if (op == "&&") return 4;
+			else if (op == "==") return 5;
+			else if (op == "!=") return 6;
+			else if (op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "&=" || op == "|=" || op == "^=") return 11;
+			else if (op == "^") return 12;
+			else if (op == "++" || op == "--") return 13;
+			else if (op == "<=" || op == ">=") return 7;
 			else if (op == "+" || op == "-") return 9;
 			else if (op == "*" || op == "/") return 10;
 			else if (op == "<" || op == ">") return 8;

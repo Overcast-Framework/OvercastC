@@ -55,6 +55,12 @@ public:
 		return &floatType;
 	}
 
+	static IdentifierType* GetBoolType()
+	{
+		static IdentifierType boolType("bool");
+		return &boolType;
+	}
+
 	static IdentifierType* GetVoidType()
 	{
 		static IdentifierType voidType("void");

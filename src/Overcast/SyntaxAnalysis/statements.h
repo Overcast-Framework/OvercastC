@@ -13,6 +13,8 @@ public:
 		VariableDecl,
 		ConstDecl,
 		Return,
+		VariableSet,
+		If,
 		Expression // As in Expression Statements
 	};
 	Type m_Type;
@@ -111,11 +113,22 @@ public:
 	VariableSetStatement() = default;
 
 	VariableSetStatement(const std::string& VarName, std::unique_ptr<Expression> value)
-		: Statement{ Type::VariableDecl }, VarName(VarName), Value(std::move(value))
+		: Statement{ Type::VariableSet }, VarName(VarName), Value(std::move(value))
 	{
 	}
 };
 
+class IfStatement : public Statement
+{
+public:
+	std::unique_ptr<Expression> Condition;
+	std::vector<std::unique_ptr<Statement>> Body;
+	std::vector<std::unique_ptr<Statement>> ElseBody;
+	IfStatement(std::unique_ptr<Expression> condition, std::vector<std::unique_ptr<Statement>>&& body, std::vector<std::unique_ptr<Statement>>&& elseBody)
+		: Statement{ Type::If }, Condition(std::move(condition)), Body(std::move(body)), ElseBody(std::move(elseBody))
+	{
+	}
+};
 
 class ConstDeclStatement : public Statement
 {

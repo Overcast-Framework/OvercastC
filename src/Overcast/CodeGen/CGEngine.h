@@ -25,11 +25,14 @@ namespace Overcast::CodeGen {
 		llvm::Function* currentFunction = nullptr;
 
 		std::unordered_map<std::string, llvm::Value*> symbolTable;
+		std::unordered_map<std::string, llvm::Type*> variableTypeTable;
 
 		llvm::Value* GenerateStatement(Statement& statement);
 		llvm::Value* GenerateFunction(const FunctionDeclStatement& funcDecl);
 		llvm::Value* GenerateReturn(const ReturnStatement& retDecl);
 		llvm::Value* GenerateVarDecl(const VariableDeclStatement& varDecl);
+		llvm::Value* GenerateVarSet(const VariableSetStatement& varSet);
+		llvm::Value* GenerateIfStatement(const IfStatement& ifStmt);
 		llvm::Value* GenerateExpression(Expression& expression);
 		llvm::Value* GenerateFunctionCall(const InvokeFunctionExpr& funcCall);
 		llvm::Type* GetLLVMType(OCType& ocType);
