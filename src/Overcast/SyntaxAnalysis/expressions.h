@@ -80,9 +80,15 @@ public:
 class BinaryExpr : public Expression
 {
 public:
-	Expression A;
+	std::unique_ptr<Expression> A;
 	std::string Operator;
-	Expression B;
+	std::unique_ptr<Expression> B;
+
+	BinaryExpr(std::unique_ptr<Expression>&& a, const std::string& op, std::unique_ptr<Expression>&& b)
+		: A(std::move(a)), Operator(op), B(std::move(b))
+	{
+		m_Type = Type::Binary;
+	}
 };
 
 class InvokeFunctionExpr : public Expression

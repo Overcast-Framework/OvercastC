@@ -1,3 +1,4 @@
+#include "ocpch.h"
 #include "binder.h"
 
 void Overcast::Semantic::Binder::Binder::BindStatement(const Statement& stmt)
@@ -141,6 +142,10 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindExpre
 	{
 		// Boolean literals do not require binding, they are handled in code generation.
 	}
+	else if (dynamic_cast<const BinaryExpr*>(&expr))
+	{
+		return this->BindBinaryExpr(static_cast<const BinaryExpr&>(expr));
+	}
 	else
 	{
 		throw std::runtime_error("Unsupported expression type for binding.");
@@ -191,4 +196,15 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindVaria
 		throw std::runtime_error("Variable " + varUse.VariableName + " is not defined in this scope.");
 	}
 	return varSymbol;
+}
+
+Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindBinaryExpr(const BinaryExpr& binExpr)
+{
+	Symbol leftSymbol = BindExpression(*binExpr.A);
+	Symbol rightSymbol = BindExpression(*binExpr.B);
+	if (leftSymbol.Type->to_string() != rightSymbol.Type->to_string())
+	{
+		throw std::runtime_error("Binary expression operands must be of the same type.");
+	}
+	return Symbol("<binary_expr>", SymbolKind::Variable, leftSymbol.Type);
 }

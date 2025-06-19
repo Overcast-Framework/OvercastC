@@ -10,12 +10,15 @@ project "Overcast" -- compiler project
    kind "ConsoleApp"
    language "C++"
    cppdialect "C++17"
+
+   pchheader "ocpch.h"
+   pchsource "src/Overcast/ocpch.cc"
    
    targetdir "bin/%{cfg.buildcfg}"
 
    files { "src/Overcast/**.h", "src/Overcast/**.cc" }
 
-   includedirs { "src", "vendors/llvm-project/build/include", "vendors/llvm-project/llvm/include" }
+   includedirs { "src", "src/Overcast", "vendors/llvm-project/build/include", "vendors/llvm-project/llvm/include" }
 
    libdirs { "vendors/llvm-project/build/lib" }
 

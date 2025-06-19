@@ -22,7 +22,8 @@ namespace Overcast::Parser
 		std::vector<Token>& Tokens;
 		std::vector<Token>::iterator currentToken;
 
-		std::unique_ptr<Expression> ParseExpression();
+		std::unique_ptr<Expression> ParseExpression(int precedence = 0);
+		std::unique_ptr<Expression> ParsePrimaryExpression();
 		std::unique_ptr<Statement> ParseStatement();
 		
 		std::unique_ptr<OCType> ParseType();
@@ -32,6 +33,7 @@ namespace Overcast::Parser
 		std::vector<std::unique_ptr<Statement>> ParseBlockStatement();
 		std::unique_ptr<FunctionDeclStatement> ParseFunctionDeclStatement();
 		std::unique_ptr<VariableDeclStatement> ParseVarDeclStatement();
+		std::unique_ptr<VariableDeclStatement> ParseVarSetStatement();
 		std::unique_ptr<ReturnStatement> ParseReturnStatement();
 		std::unique_ptr<ConstDeclStatement> ParseConstDeclStatement();
 
@@ -66,6 +68,29 @@ namespace Overcast::Parser
 		{
 			if(currentToken != Tokens.end())
 				++currentToken;
+		}
+
+		inline int GetPrecedence(const Token& token)
+		{
+			if (token.Type != TokenType::OPERATOR) return -1;
+
+			std::string op = token.Lexeme;
+			if (op == "=") return 1;
+			else if (op == "+" || op == "-") return 9;
+			else if (op == "*" || op == "/") return 10;
+			else if (op == "<" || op == ">") return 8;
+
+			return -1;
+		}
+
+		inline bool IsRightAssociative(const std::string& op) {
+			static const std::unordered_set<std::string> rightAssociativeOps = {
+				"=",
+				"+=", "-=", "*=", "/=", "%=",
+				"^"
+			};
+
+			return rightAssociativeOps.count(op) > 0;
 		}
 	};
 

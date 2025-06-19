@@ -1,3 +1,4 @@
+#include "ocpch.h"
 #include "parser.h"
 
 std::vector<std::unique_ptr<Statement>> Overcast::Parser::Parser::Parse()
@@ -14,31 +15,63 @@ std::vector<std::unique_ptr<Statement>> Overcast::Parser::Parser::Parse()
 	return ResultVector;
 }
 
-std::unique_ptr <Expression> Overcast::Parser::Parser::ParseExpression()
+std::unique_ptr<Expression> Overcast::Parser::Parser::ParseExpression(int precedence)
+{
+	auto lhs = ParsePrimaryExpression();
+    while (currentToken->Type == TokenType::OPERATOR && GetPrecedence(*currentToken) >= precedence)
+    {
+        auto op = Match(TokenType::OPERATOR);
+        auto opPrec = GetPrecedence(op);
+        int nextPrecedence;
+        if (IsRightAssociative(op.Lexeme)) {
+            nextPrecedence = opPrec;
+        }
+        else {
+            nextPrecedence = opPrec + 1;
+        }
+		auto rhs = ParseExpression(nextPrecedence);
+		lhs = std::make_unique<BinaryExpr>(std::move(lhs), op.Lexeme, std::move(rhs));
+    }
+
+    return lhs;
+}
+
+std::unique_ptr <Expression> Overcast::Parser::Parser::ParsePrimaryExpression()
 {
     switch (currentToken->Type)
     {
-        case TokenType::INTEGER:
+    case TokenType::INTEGER:
+    {
+        return ParseIntLiteralExpr();
+    }
+    case TokenType::STRING:
+    {
+        return ParseStringLiteralExpr();
+    }
+    case TokenType::IDENTIFIER:
+    {
+        if (Peek().Lexeme == "(")
         {
-            return ParseIntLiteralExpr();
+            return ParseFuncInvokeExpr();
         }
-        case TokenType::STRING:
+        else
         {
-            return ParseStringLiteralExpr();
+            return ParseVariableExpr();
         }
-        case TokenType::IDENTIFIER:
+    }
+    case TokenType::SYMBOL:
+        if (currentToken->Lexeme == "(") // grouped subexpression
         {
-            if (Peek().Lexeme == "(")
-            {
-                return ParseFuncInvokeExpr();
-            }
-            else
-            {
-                return ParseVariableExpr();
-            }
+            Match(TokenType::SYMBOL);
+            auto expr = ParseExpression(0);
+            if (currentToken->Lexeme != ")")
+                throw std::runtime_error("Expected closing parenthesis");
+            Match(TokenType::SYMBOL);
+            return expr;
         }
-        default:
-            throw std::runtime_error("Unexpected token in expression: " + currentToken->Lexeme);
+        break;
+    default:
+        throw std::runtime_error("Unexpected token in expression: " + currentToken->Lexeme);
     }
 }
 
@@ -202,6 +235,15 @@ std::unique_ptr<VariableDeclStatement> Overcast::Parser::Parser::ParseVarDeclSta
     }
 }
 
+std::unique_ptr<VariableDeclStatement> Overcast::Parser::Parser::ParseVarSetStatement()
+{
+	auto varName = Match(TokenType::IDENTIFIER).Lexeme;
+	Match(TokenType::OPERATOR, "=");
+	auto value = ParseExpression();
+	Match(TokenType::SYMBOL, ";");
+	return std::make_unique<VariableSetStatement>(varName, std::move(value));
+}
+
 std::unique_ptr<ReturnStatement> Overcast::Parser::Parser::ParseReturnStatement()
 {
 	Match(TokenType::KEYWORD, "return");
@@ -271,10 +313,9 @@ std::unique_ptr<InvokeFunctionExpr> Overcast::Parser::Parser::ParseFuncInvokeExp
     std::vector<std::unique_ptr<Expression>> arguments;
     Match(TokenType::SYMBOL, "(");
 
-    while (currentToken->Lexeme != ")") // name ':' type
+    while (currentToken->Lexeme != ")")
     {
         auto expr = ParseExpression();
-
         arguments.push_back(std::move(expr));
         if (currentToken->Lexeme == ",")
             Match(TokenType::SYMBOL);

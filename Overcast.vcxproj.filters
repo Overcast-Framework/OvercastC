@@ -31,6 +31,7 @@
       <Filter>SyntaxAnalysis</Filter>
     </ClInclude>
     <ClInclude Include="src\Overcast\lexer.h" />
+    <ClInclude Include="src\Overcast\ocpch.h" />
     <ClInclude Include="src\Overcast\ocutils.h" />
   </ItemGroup>
   <ItemGroup>
@@ -48,5 +49,6 @@
     </ClCompile>
     <ClCompile Include="src\Overcast\lexer.cc" />
     <ClCompile Include="src\Overcast\main.cc" />
+    <ClCompile Include="src\Overcast\ocpch.cc" />
   </ItemGroup>
 </Project>

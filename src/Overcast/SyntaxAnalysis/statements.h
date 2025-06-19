@@ -102,6 +102,21 @@ public:
 	}
 };
 
+class VariableSetStatement : public Statement
+{
+public:
+	std::string VarName;
+	std::unique_ptr<Expression> Value;
+
+	VariableSetStatement() = default;
+
+	VariableSetStatement(const std::string& VarName, std::unique_ptr<Expression> value)
+		: Statement{ Type::VariableDecl }, VarName(VarName), Value(std::move(value))
+	{
+	}
+};
+
+
 class ConstDeclStatement : public Statement
 {
 public:

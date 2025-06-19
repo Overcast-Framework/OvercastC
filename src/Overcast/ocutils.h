@@ -1,6 +1,8 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <typeinfo>
+#include <memory>
 #include <vector>
 
 namespace OCUtils
@@ -12,5 +14,11 @@ namespace OCUtils
             str.replace(start_pos, from.length(), to);
             start_pos += to.length();
         }
+    }
+
+    template<typename T>
+    std::string demangle(const T& obj) {
+        const char* mangledName = typeid(obj).name();
+        return mangledName;
     }
 };

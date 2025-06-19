@@ -80,6 +80,7 @@ namespace Overcast::Semantic::Binder
 		Symbol BindExpression(const Expression& expr);
 		Symbol BindFuncInvoke(const InvokeFunctionExpr& funcInv);
 		Symbol BindVariableUse(const VariableUseExpr& varUse);
+		Symbol BindBinaryExpr(const BinaryExpr& binExpr);
 
 		void EnterScope()
 		{

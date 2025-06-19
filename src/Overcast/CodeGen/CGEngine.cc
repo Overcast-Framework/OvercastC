@@ -1,3 +1,4 @@
+#include "ocpch.h"
 #include "CGEngine.h"
 
 llvm::Module* Overcast::CodeGen::CGEngine::Generate(const std::vector<std::unique_ptr<Statement>>& statements)
@@ -169,7 +170,7 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateExpression(Expression& express
 	}
 	else if (auto strExpr = dynamic_cast<StringLiteralExpr*>(&expression))
 	{
-		llvm::Value* strValue = builder.CreateGlobalStringPtr(strExpr->LiteralValue, ".str");
+		llvm::Value* strValue = builder.CreateGlobalString(strExpr->LiteralValue, ".str");
 		return strValue;
 	}
 	else if (auto intExpr = dynamic_cast<IntLiteralExpr*>(&expression))
@@ -189,6 +190,24 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateExpression(Expression& express
 		}
 
 		return symbolTable[varExpr->VariableName];
+	}
+	else if (auto binExpr = dynamic_cast<BinaryExpr*>(&expression))
+	{
+		llvm::Value* lhs = GenerateExpression(*binExpr->A.get());
+		llvm::Value* rhs = GenerateExpression(*binExpr->B.get());
+
+		auto op = binExpr->Operator;
+
+		if (op == "+")
+			return builder.CreateAdd(lhs, rhs, "addtmp");
+		else if (op == "-")
+			return builder.CreateSub(lhs, rhs, "subtmp");
+		else if (op == "*")
+			return builder.CreateMul(lhs, rhs, "multmp");
+		else if (op == "/")
+			return builder.CreateSDiv(lhs, rhs, "divtmp");
+		else
+			throw std::runtime_error("Unsupported binary operator.");
 	}
 }
 

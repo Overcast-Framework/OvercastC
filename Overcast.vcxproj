@@ -55,10 +55,11 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Win64|x64'">
     <ClCompile>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>ocpch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>LLVM_STATIC;__STDC_CONSTANT_MACROS;__STDC_FORMAT_MACROS;__STDC_LIMIT_MACROS;DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendors\llvm-project\build\include;vendors\llvm-project\llvm\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;src\Overcast;vendors\llvm-project\build\include;vendors\llvm-project\llvm\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -74,10 +75,11 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Win64|x64'">
     <ClCompile>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>ocpch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>LLVM_STATIC;__STDC_CONSTANT_MACROS;__STDC_FORMAT_MACROS;__STDC_LIMIT_MACROS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendors\llvm-project\build\include;vendors\llvm-project\llvm\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;src\Overcast;vendors\llvm-project\build\include;vendors\llvm-project\llvm\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -97,13 +99,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\Overcast\CodeGen\CGEngine.h" />
-    <ClInclude Include="src\Overcast\ocutils.h" />
     <ClInclude Include="src\Overcast\SemanticAnalysis\binder.h" />
     <ClInclude Include="src\Overcast\SyntaxAnalysis\expressions.h" />
     <ClInclude Include="src\Overcast\SyntaxAnalysis\parser.h" />
     <ClInclude Include="src\Overcast\SyntaxAnalysis\statements.h" />
     <ClInclude Include="src\Overcast\SyntaxAnalysis\types.h" />
     <ClInclude Include="src\Overcast\lexer.h" />
+    <ClInclude Include="src\Overcast\ocpch.h" />
+    <ClInclude Include="src\Overcast\ocutils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Overcast\CodeGen\CGEngine.cc" />
@@ -112,6 +115,9 @@
     <ClCompile Include="src\Overcast\SyntaxAnalysis\types.cc" />
     <ClCompile Include="src\Overcast\lexer.cc" />
     <ClCompile Include="src\Overcast\main.cc" />
+    <ClCompile Include="src\Overcast\ocpch.cc">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
