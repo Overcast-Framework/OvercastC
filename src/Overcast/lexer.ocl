@@ -1,0 +1,13 @@
+; LEXER SPECIFICATION FILE FOR OVERCAST
+; USED WITH OVERCLAD
+
+KEYWORD: "\\b(func|if|else|while|return|struct|use|let|var|mut|const|export|import|extern|package)\\b"
+IDENTIFIER: "[a-zA-Z_][a-zA-Z0-9_]*"
+ARROW: "(->|<-)"
+OPERATOR: "[+\\-*/=<>!&|^%]"
+SYMBOL: "[+\\-*/=<>!&|^%(){}\\[\\],.:;]"
+INTEGER: "\\b[0-9]+\\b"
+STRING: "\".*?\""
+COMMENT: "//.*?\\n"
+; it automatically skips any WHITESPACE tokens
+WHITESPACE: "\\s+"
