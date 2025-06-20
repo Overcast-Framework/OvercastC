@@ -89,7 +89,7 @@ public:
 	FunctionDeclStatement() = default;
 };
 
-class VariableDeclStatement : public Statement // TO-DO: create a struct member set statement (!!)
+class VariableDeclStatement : public Statement
 {
 public:
 	std::string VarName;
@@ -105,16 +105,16 @@ public:
 	}
 };
 
-class VariableSetStatement : public Statement
+class VariableSetStatement : public Statement // handles complex LHS expressions aswell (struct member assignment)
 {
 public:
-	std::string VarName;
+	std::unique_ptr<Expression> LHS;
 	std::unique_ptr<Expression> Value;
 
 	VariableSetStatement() = default;
 
-	VariableSetStatement(const std::string& VarName, std::unique_ptr<Expression> value)
-		: Statement{ Type::VariableSet }, VarName(VarName), Value(std::move(value))
+	VariableSetStatement(std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> value)
+		: Statement{ Type::VariableSet }, LHS(std::move(lhs)), Value(std::move(value))
 	{
 	}
 };
