@@ -80,6 +80,10 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateStatement(Statement& statement
 	{
 		return GenerateFunction(*func);
 	}
+	else if (auto strDecl = dynamic_cast<StructDeclStatement*>(&statement))
+	{
+		return GenerateStructDecl(*strDecl);
+	}
 	else if (auto expr = dynamic_cast<ExpressionStatement*>(&statement))
 	{
 		return GenerateExpression(*expr->EncapsulatedExpr.get());
@@ -156,6 +160,40 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateReturn(const ReturnStatement& 
 {
 	auto returnValue = GenerateExpression(*retDecl.ReturnValue.get());
 	return builder.CreateRet(returnValue);
+}
+
+llvm::Value* Overcast::CodeGen::CGEngine::GenerateStructDecl(const StructDeclStatement& strDecl)
+{
+	// okay, first make the struct type
+	std::vector<llvm::Type*> memberTypes;
+	std::map<std::string, StructDef::StructMember> StructMembers;
+
+	int idx = 0;
+	for (const auto& member : strDecl.Members)
+	{
+		auto* type = GetLLVMType(*member.ParameterType);
+		auto name = member.ParameterName;
+
+		memberTypes.push_back(type);
+		StructMembers.insert({ name, {type, name, idx++} });
+	}
+
+	auto* structType = llvm::StructType::create(module->getContext(), strDecl.StructName);
+	structType->setBody(memberTypes, false);
+	structDefTable.insert({ strDecl.StructName, { structType, StructMembers } });
+
+	// then the ~member functions~
+	for (auto& fDecl : strDecl.MemberFunctions) {
+		fDecl->FuncName = strDecl.StructName + "::" + fDecl->FuncName;
+
+		auto regType = std::make_unique<IdentifierType>(strDecl.StructName);
+		auto pointerType = std::make_unique<PointerType>(std::move(regType));
+		fDecl->Parameters.push_back({std::move(pointerType), "this" });
+
+		GenerateFunction(*fDecl);
+	}
+
+	return nullptr;
 }
 
 llvm::AllocaInst* CreateEntryBlockAlloca(llvm::Function* func, llvm::Type* type, const std::string& varName) { // helper
@@ -266,6 +304,26 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateExpression(Expression& express
 
 		return symbolTable[varExpr->VariableName];
 	}
+	else if (auto strCtorExpr = dynamic_cast<StructCtorExpr*>(&expression))
+	{
+		// okay time to find the ctor, if I can't find it, then I just "pretend" there's a default one that just makes the object
+		auto ctorFunction = module->getFunction(strCtorExpr->StructTypeName + "::" + "ctor");
+		auto structObject = builder.CreateAlloca(structDefTable[strCtorExpr->StructTypeName].StructType, nullptr, "structObj:" + strCtorExpr->StructTypeName);
+
+		if (ctorFunction)
+		{
+			std::vector<llvm::Value*> args;
+			for (const auto& argExpr : strCtorExpr->Arguments)
+			{
+				args.push_back(GenerateExpression(*argExpr));
+			}
+
+			args.push_back(structObject);
+			builder.CreateCall(ctorFunction, args, "ctor_call");
+		}
+
+		return structObject;
+	}
 	else if (auto binExpr = dynamic_cast<BinaryExpr*>(&expression))
 	{
 		llvm::Value* lhs = GenerateExpression(*binExpr->A.get());
@@ -367,12 +425,13 @@ llvm::Type* Overcast::CodeGen::CGEngine::GetLLVMType(OCType& ocType)
 		{
 			return llvm::Type::getInt8Ty(context);
 		}
-		else if (type->TypeName == "void*")
-		{
-			return llvm::PointerType::get(llvm::Type::getVoidTy(context), 0);
-		}
 		else
 		{
+			// check struct types
+			if (structDefTable.find(type->TypeName) != structDefTable.end())
+			{
+				return structDefTable[type->TypeName].StructType;
+			}
 			throw std::runtime_error("Unknown type: " + type->TypeName);
 		}
 		// later handle user-defined types

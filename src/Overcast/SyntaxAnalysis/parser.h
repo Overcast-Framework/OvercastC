@@ -34,6 +34,7 @@ namespace Overcast::Parser
 		std::unique_ptr<FunctionDeclStatement> ParseFunctionDeclStatement();
 		std::unique_ptr<VariableDeclStatement> ParseVarDeclStatement();
 		std::unique_ptr<VariableSetStatement> ParseVarSetStatement();
+		std::unique_ptr<StructDeclStatement> ParseStructDeclStatement();
 		std::unique_ptr<IfStatement> ParseIfStatement();
 		std::unique_ptr<ReturnStatement> ParseReturnStatement();
 		std::unique_ptr<ConstDeclStatement> ParseConstDeclStatement();
@@ -47,6 +48,7 @@ namespace Overcast::Parser
 		std::unique_ptr<Expression> ParseUnaryExpr();
 		std::unique_ptr<TypeCastExpr> ParseTypeCastExpr();
 		std::unique_ptr<InvokeFunctionExpr> ParseFuncInvokeExpr();
+		std::unique_ptr<StructCtorExpr> ParseStructCtorExpr();
 
 		const Token& Peek() {
 			// Check if the next token exists

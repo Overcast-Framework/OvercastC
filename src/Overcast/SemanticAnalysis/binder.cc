@@ -11,6 +11,12 @@ void Overcast::Semantic::Binder::Binder::BindStatement(const Statement& stmt)
 		BindFunctionDecl(funcDecl);
 		break;
 	}
+	case Statement::Type::StructDecl:
+	{
+		const StructDeclStatement& strDecl = static_cast<const StructDeclStatement&>(stmt);
+		BindStructDecl(strDecl);
+		break;
+	}
 	case Statement::Type::VariableDecl:
 	{
 		const VariableDeclStatement& varDecl = static_cast<const VariableDeclStatement&>(stmt);
@@ -155,6 +161,43 @@ void Overcast::Semantic::Binder::Binder::BindVariableDecl(const VariableDeclStat
 	this->Scopes.back().AddSymbol(varSymbol);
 }
 
+void Overcast::Semantic::Binder::Binder::BindStructDecl(const StructDeclStatement& structDecl)
+{
+	auto& type = IdentifierType{ structDecl.StructName };
+	Symbol structSymbol(structDecl.StructName, SymbolKind::Struct, &type);
+	Symbol strCheck("INTERNAL_STRUCT_CHECK", SymbolKind::Variable, &IdentifierType{ "bool" }); // this doesnt matter
+	if (LookupSymbol(structDecl.StructName, strCheck))
+	{
+		throw std::runtime_error("Struct " + structDecl.StructName + " is already defined in this scope.");
+	}
+
+	for (const auto& member : structDecl.Members)
+	{
+		Symbol memberSymbol(member.ParameterName, SymbolKind::Variable, member.ParameterType.get());
+		structSymbol.StructSymbols.push_back(memberSymbol);
+	}
+
+	for (const auto& memberFunc : structDecl.MemberFunctions)
+	{
+		Symbol memberFuncSymbol(memberFunc->FuncName, SymbolKind::Function, memberFunc->ReturnType.get());
+
+		auto regType = std::make_unique<IdentifierType>(structDecl.StructName);
+		auto pointerType = std::make_unique<PointerType>(std::move(regType));
+
+		memberFunc->Parameters.push_back({ std::move(pointerType), "this" });
+		memberFuncSymbol.ParamCount = memberFunc->Parameters.size();
+		for (const auto& param : memberFunc->Parameters)
+		{
+			memberFuncSymbol.ParamTypeNames.push_back(param.ParameterType->to_string());
+		}
+
+		BindStatement(*memberFunc);
+		structSymbol.StructSymbols.push_back(memberFuncSymbol);
+	}
+
+	this->Scopes.back().AddSymbol(structSymbol);
+}
+
 Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindExpression(const Expression& expr)
 {
 	if (dynamic_cast<const InvokeFunctionExpr*>(&expr))
@@ -182,6 +225,10 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindExpre
 	else if (dynamic_cast<const BinaryExpr*>(&expr))
 	{
 		return this->BindBinaryExpr(static_cast<const BinaryExpr&>(expr));
+	}
+	else if (dynamic_cast<const StructCtorExpr*>(&expr))
+	{
+		return this->BindStructCtor(static_cast<const StructCtorExpr&>(expr));
 	}
 	else
 	{
@@ -250,4 +297,56 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindBinar
 		return Symbol("<binary_expr>", SymbolKind::Variable, IdentifierType::GetBoolType());
 	}
 	return Symbol("<binary_expr>", SymbolKind::Variable, leftSymbol.Type);
+}
+
+Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindStructCtor(const StructCtorExpr& structCtor)
+{
+	Symbol structSymbol;
+	if (!LookupSymbol(structCtor.StructTypeName, structSymbol))
+	{
+		throw std::runtime_error("Struct " + structCtor.StructTypeName + " is not defined.");
+	}
+
+	if (structSymbol.Kind != SymbolKind::Struct)
+	{
+		throw std::runtime_error("Identifier " + structCtor.StructTypeName + " is not a struct.");
+	}
+
+	Symbol ctorSymbol("<INVALID>", SymbolKind::Variable, structSymbol.Type);
+	for (auto& symbol : structSymbol.StructSymbols)
+	{
+		if (symbol.Kind == SymbolKind::Function && symbol.Name == "ctor") // that means there's a ctor
+		{
+			ctorSymbol = symbol;
+			break;
+		}
+	}
+
+	if (ctorSymbol.Name != "<INVALID>")
+	{
+		if (structCtor.Arguments.size() != ctorSymbol.ParamTypeNames.size())
+		{
+			throw std::runtime_error("No overload of struct " + structCtor.StructTypeName + "'s constructors take " + std::to_string(structCtor.Arguments.size()) + " arguments.");
+		}
+
+		for (int i = 0; i < ctorSymbol.ParamTypeNames.size(); i++)
+		{
+			auto& param = ctorSymbol.ParamTypeNames[i];
+			auto& arg = BindExpression(*structCtor.Arguments[i]).Type->to_string();
+
+			if (param != arg)
+			{
+				throw std::runtime_error("Struct constructor argument type mismatch. Expected type " + param + ", got " + arg + ".");
+			}
+		}
+	}
+	else
+	{
+		if (structCtor.Arguments.size() != ctorSymbol.ParamTypeNames.size())
+		{
+			throw std::runtime_error("No overload of struct " + structCtor.StructTypeName + "'s constructors take " + std::to_string(structCtor.Arguments.size()) + " arguments.");
+		}
+	}
+
+	return structSymbol;
 }

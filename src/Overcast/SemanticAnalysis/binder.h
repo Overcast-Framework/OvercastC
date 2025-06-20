@@ -11,6 +11,7 @@ namespace Overcast::Semantic::Binder
 	enum class SymbolKind
 	{
 		Variable,
+		Struct,
 		Function
 	};
 
@@ -23,6 +24,7 @@ namespace Overcast::Semantic::Binder
 
 		int ParamCount = 0; // for functions
 		std::vector<std::string> ParamTypeNames; // for functions, names of parameters
+		std::vector<Symbol> StructSymbols; // for structs, members of the struct
 		bool Variadic = false;
 
 		Symbol() : Name(""), Kind(SymbolKind::Variable), Type(nullptr) {}
@@ -76,11 +78,13 @@ namespace Overcast::Semantic::Binder
 		void BindStatement(const Statement& stmt);
 		void BindFunctionDecl(const FunctionDeclStatement& funcDecl);
 		void BindVariableDecl(const VariableDeclStatement& varDecl);
+		void BindStructDecl(const StructDeclStatement& structDecl);
 
 		Symbol BindExpression(const Expression& expr);
 		Symbol BindFuncInvoke(const InvokeFunctionExpr& funcInv);
 		Symbol BindVariableUse(const VariableUseExpr& varUse);
 		Symbol BindBinaryExpr(const BinaryExpr& binExpr);
+		Symbol BindStructCtor(const StructCtorExpr& structCtor);
 
 		void EnterScope()
 		{

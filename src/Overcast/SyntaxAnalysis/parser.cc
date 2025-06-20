@@ -60,6 +60,12 @@ std::unique_ptr <Expression> Overcast::Parser::Parser::ParsePrimaryExpression()
             return ParseVariableExpr();
         }
     }
+	case TokenType::KEYWORD:
+		if (currentToken->Lexeme == "new") // boolean literal
+		{
+            return ParseStructCtorExpr();
+		}
+		break;
     case TokenType::SYMBOL:
         if (currentToken->Lexeme == "(") // grouped subexpression
         {
@@ -117,10 +123,14 @@ std::unique_ptr<Statement> Overcast::Parser::Parser::ParseStatement()
             {
                 return std::make_unique<ExpressionStatement>(ParseFuncInvokeExpr());
             }
-            if (Peek().Lexeme == "=")
+            else if (Peek().Lexeme == "=")
             {
 				return ParseVarSetStatement();
 			}
+            else if (Peek().Lexeme == "->")
+            {
+                return ParseStructDeclStatement();
+            }
             break;
     }
 
@@ -261,6 +271,47 @@ std::unique_ptr<VariableSetStatement> Overcast::Parser::Parser::ParseVarSetState
 	return std::make_unique<VariableSetStatement>(varName, std::move(value));
 }
 
+std::unique_ptr<StructDeclStatement> Overcast::Parser::Parser::ParseStructDeclStatement()
+{
+    auto structName = Match(TokenType::IDENTIFIER).Lexeme;
+    Match(TokenType::ARROW, "->");
+	Match(TokenType::KEYWORD, "struct");
+	Match(TokenType::SYMBOL, "{");
+
+    std::vector<Parameter> members;
+	std::vector<std::unique_ptr<FunctionDeclStatement>> memberFunctions;
+
+    while (currentToken->Lexeme != "func" && currentToken->Lexeme != "}")
+    {
+        auto memberName = Match(TokenType::IDENTIFIER).Lexeme;
+        Match(TokenType::SYMBOL, ":");
+        auto memberType = ParseType();
+        members.push_back({ std::move(memberType), memberName });
+        if (currentToken->Lexeme == "")
+            Match(TokenType::SYMBOL);
+        Match(TokenType::SYMBOL, ";");
+    }
+
+	if (currentToken->Lexeme == "func")
+	{
+		while (currentToken->Lexeme == "func")
+		{
+			memberFunctions.push_back(ParseFunctionDeclStatement());
+		}
+
+        if (currentToken->Lexeme != "func" && currentToken->Lexeme != "}") {
+            if (!memberFunctions.empty()) {
+                throw SyntaxError("Cannot declare fields after member functions.");
+            }
+        }
+	}
+
+	Match(TokenType::SYMBOL, "}");
+	auto structDecl = std::make_unique<StructDeclStatement>(structName, members);
+	structDecl->MemberFunctions = std::move(memberFunctions);
+	return structDecl;
+}
+
 std::unique_ptr<IfStatement> Overcast::Parser::Parser::ParseIfStatement()
 {
 	Match(TokenType::KEYWORD, "if");
@@ -362,6 +413,29 @@ std::unique_ptr<InvokeFunctionExpr> Overcast::Parser::Parser::ParseFuncInvokeExp
 
     Match(TokenType::SYMBOL, ")");
     return std::make_unique<InvokeFunctionExpr>(invokeeName, std::move(arguments));
+}
+
+std::unique_ptr<StructCtorExpr> Overcast::Parser::Parser::ParseStructCtorExpr()
+{
+	Match(TokenType::KEYWORD, "new");
+    auto structName = Match(TokenType::IDENTIFIER).Lexeme;
+
+    std::vector<std::unique_ptr<Expression>> arguments;
+    Match(TokenType::SYMBOL, "(");
+
+    while (currentToken->Lexeme != ")")
+    {
+        auto expr = ParseExpression();
+        arguments.push_back(std::move(expr));
+        if (currentToken->Lexeme == ",")
+            Match(TokenType::SYMBOL);
+        else if (currentToken->Lexeme != ")")
+            Match(TokenType::SYMBOL, ","); // to cause the syntax error to pop up
+    }
+
+    Match(TokenType::SYMBOL, ")");
+
+	return std::make_unique<StructCtorExpr>(structName, std::move(arguments));
 }
 
 std::string getTokenName(TokenType tok)

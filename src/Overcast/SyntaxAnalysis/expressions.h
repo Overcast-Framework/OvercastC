@@ -16,6 +16,7 @@ public:
 		ConstUse,
 		Binary,
 		FunctionCall,
+		StructCtor,
 		Cast
 	};
 
@@ -101,6 +102,19 @@ public:
 		: InvokedFunctionName(funcName), Arguments(std::move(args))
 	{
 		m_Type = Type::FunctionCall;
+	}
+};
+
+class StructCtorExpr : public Expression
+{
+public:
+	std::string StructTypeName;
+	std::vector<std::unique_ptr<Expression>> Arguments;
+
+	StructCtorExpr(const std::string& structTypeName, std::vector<std::unique_ptr<Expression>>&& args)
+		: StructTypeName(structTypeName), Arguments(std::move(args))
+	{
+		m_Type = Type::StructCtor;
 	}
 };
 

@@ -17,6 +17,18 @@ namespace llvm {
 }
 
 namespace Overcast::CodeGen {
+	struct StructDef
+	{
+		struct StructMember
+		{
+			llvm::Type* Type;
+			std::string Name;
+			int Index;
+		};
+		llvm::Type* StructType;
+		std::map<std::string, StructMember> StructMembers;
+	};
+
 	class CGEngine {
 	private:
 		llvm::LLVMContext context;
@@ -25,11 +37,12 @@ namespace Overcast::CodeGen {
 		llvm::Function* currentFunction = nullptr;
 
 		std::unordered_map<std::string, llvm::Value*> symbolTable;
-		std::unordered_map<std::string, llvm::Type*> variableTypeTable;
+		std::unordered_map<std::string, StructDef> structDefTable;
 
 		llvm::Value* GenerateStatement(Statement& statement);
 		llvm::Value* GenerateFunction(const FunctionDeclStatement& funcDecl);
 		llvm::Value* GenerateReturn(const ReturnStatement& retDecl);
+		llvm::Value* GenerateStructDecl(const StructDeclStatement& strDecl);
 		llvm::Value* GenerateVarDecl(const VariableDeclStatement& varDecl);
 		llvm::Value* GenerateVarSet(const VariableSetStatement& varSet);
 		llvm::Value* GenerateIfStatement(const IfStatement& ifStmt);

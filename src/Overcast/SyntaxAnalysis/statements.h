@@ -15,6 +15,7 @@ public:
 		Return,
 		VariableSet,
 		If,
+		StructDecl,
 		Expression // As in Expression Statements
 	};
 	Type m_Type;
@@ -88,7 +89,7 @@ public:
 	FunctionDeclStatement() = default;
 };
 
-class VariableDeclStatement : public Statement
+class VariableDeclStatement : public Statement // TO-DO: create a struct member set statement (!!)
 {
 public:
 	std::string VarName;
@@ -114,6 +115,19 @@ public:
 
 	VariableSetStatement(const std::string& VarName, std::unique_ptr<Expression> value)
 		: Statement{ Type::VariableSet }, VarName(VarName), Value(std::move(value))
+	{
+	}
+};
+
+class StructDeclStatement : public Statement
+{
+public:
+	std::string StructName;
+	std::vector<Parameter> Members;
+	std::vector<std::unique_ptr<FunctionDeclStatement>> MemberFunctions;
+
+	StructDeclStatement(const std::string& structName, const std::vector<Parameter>& members)
+		: Statement{ Type::StructDecl }, StructName(structName), Members(members)
 	{
 	}
 };
