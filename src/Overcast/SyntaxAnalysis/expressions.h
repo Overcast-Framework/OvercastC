@@ -9,6 +9,7 @@ class Expression
 public:
 	enum class Type
 	{
+		None,
 		Int,
 		Float,
 		String,
@@ -17,10 +18,11 @@ public:
 		Binary,
 		FunctionCall,
 		StructCtor,
+		StructAccess,
 		Cast
 	};
 
-	Type m_Type;
+	Type m_Type = Type::None;
 
 	virtual ~Expression() {}
 };
@@ -65,6 +67,7 @@ class VariableUseExpr : public Expression
 {
 public:
 	std::string VariableName;
+	bool isFunc = false; // the binder sets this
 	VariableUseExpr(const std::string& varName)
 		: VariableName(varName)
 	{
@@ -95,13 +98,27 @@ public:
 class InvokeFunctionExpr : public Expression
 {
 public:
-	std::string InvokedFunctionName;
+	std::unique_ptr<Expression> InvokedFunction;
 	std::vector<std::unique_ptr<Expression>> Arguments;
+	bool IsStructFunc = false;
 
-	InvokeFunctionExpr(const std::string& funcName, std::vector<std::unique_ptr<Expression>>&& args)
-		: InvokedFunctionName(funcName), Arguments(std::move(args))
+	InvokeFunctionExpr(std::unique_ptr<Expression> funcExpr, std::vector<std::unique_ptr<Expression>>&& args)
+		: InvokedFunction(std::move(funcExpr)), Arguments(std::move(args))
 	{
 		m_Type = Type::FunctionCall;
+	}
+};
+
+class StructAccessExpr : public Expression
+{
+public:
+	std::unique_ptr<Expression> LHS;
+	std::string MemberName;
+
+	StructAccessExpr(std::unique_ptr<Expression> lhs, const std::string& memberName)
+		: LHS(std::move(lhs)), MemberName(memberName)
+	{
+		m_Type = Type::StructAccess;
 	}
 };
 

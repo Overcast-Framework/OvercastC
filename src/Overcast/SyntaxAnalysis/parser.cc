@@ -17,9 +17,9 @@ std::vector<std::unique_ptr<Statement>> Overcast::Parser::Parser::Parse()
 
 std::unique_ptr<Expression> Overcast::Parser::Parser::ParseExpression(int precedence)
 {
-	auto lhs = ParsePrimaryExpression();
+	auto lhs = ParsePostfixExpression();
     Token tokenCopy = *currentToken; // to avoid a really weird issue
-    while (currentToken->Type == TokenType::OPERATOR && GetPrecedence(tokenCopy) >= precedence)
+    while (currentToken->Type == TokenType::OPERATOR && currentToken->Lexeme != "=" && GetPrecedence(tokenCopy) >= precedence)
     {
         auto op = Match(TokenType::OPERATOR);
         auto opPrec = GetPrecedence(op);
@@ -51,14 +51,7 @@ std::unique_ptr <Expression> Overcast::Parser::Parser::ParsePrimaryExpression()
     }
     case TokenType::IDENTIFIER:
     {
-        if (Peek().Lexeme == "(")
-        {
-            return ParseFuncInvokeExpr();
-        }
-        else
-        {
-            return ParseVariableExpr();
-        }
+        return ParseVariableExpr();
     }
 	case TokenType::KEYWORD:
 		if (currentToken->Lexeme == "new") // boolean literal
@@ -80,6 +73,44 @@ std::unique_ptr <Expression> Overcast::Parser::Parser::ParsePrimaryExpression()
     default:
         throw std::runtime_error("Unexpected token in expression: " + currentToken->Lexeme);
     }
+}
+
+std::unique_ptr<Expression> Overcast::Parser::Parser::ParsePostfixExpression()
+{
+    auto expr = ParsePrimaryExpression();
+
+    while (true)
+    {
+        if (currentToken->Lexeme == "->")
+        {
+            Match(TokenType::ARROW, "->");
+            auto memberName = Match(TokenType::IDENTIFIER).Lexeme;
+            expr = std::make_unique<StructAccessExpr>(std::move(expr), memberName);
+        }
+        else if (currentToken->Lexeme == "(")
+        {
+            std::vector<std::unique_ptr<Expression>> arguments;
+            Match(TokenType::SYMBOL, "(");
+
+            while (currentToken->Lexeme != ")")
+            {
+                auto expr = ParseExpression();
+                arguments.push_back(std::move(expr));
+                if (currentToken->Lexeme == ",")
+                    Match(TokenType::SYMBOL);
+                else if (currentToken->Lexeme != ")")
+                    Match(TokenType::SYMBOL, ","); // to cause the syntax error to pop up
+            }
+
+            Match(TokenType::SYMBOL, ")");
+            expr = std::make_unique<InvokeFunctionExpr>(std::move(expr), std::move(arguments));
+        }
+        else {
+            break;
+        }
+    }
+
+    return expr;
 }
 
 std::unique_ptr<Statement> Overcast::Parser::Parser::ParseStatement()
@@ -121,15 +152,18 @@ std::unique_ptr<Statement> Overcast::Parser::Parser::ParseStatement()
         case TokenType::IDENTIFIER:
             if (Peek().Lexeme == "(") // expr statement of invoke func
             {
-                return std::make_unique<ExpressionStatement>(ParseFuncInvokeExpr());
+                return std::make_unique<ExpressionStatement>(std::move(ParseExpression()));
             }
             else if (Peek().Lexeme == "=")
             {
-				return ParseVarSetStatement();
+				return ParseAssignmentStatement();
 			}
             else if (Peek().Lexeme == "->")
             {
-                return ParseStructDeclStatement();
+                if (Peek(1).Lexeme == "struct") // look two ahead
+                    return ParseStructDeclStatement();
+                else
+                    return ParseAssignmentStatement(); // cuz then it's this->x = a lol
             }
             break;
     }
@@ -263,12 +297,12 @@ std::unique_ptr<VariableDeclStatement> Overcast::Parser::Parser::ParseVarDeclSta
     }
 }
 
-std::unique_ptr<VariableSetStatement> Overcast::Parser::Parser::ParseVarSetStatement()
+std::unique_ptr<AssignmentStatement> Overcast::Parser::Parser::ParseAssignmentStatement()
 {
-	auto varName = Match(TokenType::IDENTIFIER).Lexeme;
+    auto assignee = ParseExpression();
 	Match(TokenType::OPERATOR, "=");
 	auto value = ParseExpression();
-	return std::make_unique<VariableSetStatement>(varName, std::move(value));
+	return std::make_unique<AssignmentStatement>(std::move(assignee), std::move(value));
 }
 
 std::unique_ptr<StructDeclStatement> Overcast::Parser::Parser::ParseStructDeclStatement()
@@ -395,24 +429,8 @@ std::unique_ptr<TypeCastExpr> Overcast::Parser::Parser::ParseTypeCastExpr()
 
 std::unique_ptr<InvokeFunctionExpr> Overcast::Parser::Parser::ParseFuncInvokeExpr()
 {
-    // IDENTIFIER '(' args ')'
-    auto invokeeName = Match(TokenType::IDENTIFIER).Lexeme;
-
-    std::vector<std::unique_ptr<Expression>> arguments;
-    Match(TokenType::SYMBOL, "(");
-
-    while (currentToken->Lexeme != ")")
-    {
-        auto expr = ParseExpression();
-        arguments.push_back(std::move(expr));
-        if (currentToken->Lexeme == ",")
-            Match(TokenType::SYMBOL);
-        else if (currentToken->Lexeme != ")")
-            Match(TokenType::SYMBOL, ","); // to cause the syntax error to pop up
-    }
-
-    Match(TokenType::SYMBOL, ")");
-    return std::make_unique<InvokeFunctionExpr>(invokeeName, std::move(arguments));
+    // EXPRESSION '(' args ')'
+    return std::unique_ptr<InvokeFunctionExpr>(); // it was very much made redundant!
 }
 
 std::unique_ptr<StructCtorExpr> Overcast::Parser::Parser::ParseStructCtorExpr()

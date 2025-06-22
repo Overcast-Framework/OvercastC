@@ -13,7 +13,7 @@ public:
 		VariableDecl,
 		ConstDecl,
 		Return,
-		VariableSet,
+		Assignment,
 		If,
 		StructDecl,
 		Expression // As in Expression Statements
@@ -72,6 +72,7 @@ public:
 	std::unique_ptr<OCType> ReturnType;
 	std::vector<Parameter> Parameters;
 	std::vector<std::unique_ptr<Statement>> Body;
+	bool IsStructMember = false; // only for the binder
 
 	// Disable copy
 	FunctionDeclStatement(const FunctionDeclStatement&) = delete;
@@ -105,16 +106,16 @@ public:
 	}
 };
 
-class VariableSetStatement : public Statement // handles complex LHS expressions aswell (struct member assignment)
+class AssignmentStatement : public Statement
 {
 public:
 	std::unique_ptr<Expression> LHS;
 	std::unique_ptr<Expression> Value;
 
-	VariableSetStatement() = default;
+	AssignmentStatement() = default;
 
-	VariableSetStatement(std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> value)
-		: Statement{ Type::VariableSet }, LHS(std::move(lhs)), Value(std::move(value))
+	AssignmentStatement(std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> value)
+		: Statement{ Type::Assignment }, LHS(std::move(lhs)), Value(std::move(value))
 	{
 	}
 };

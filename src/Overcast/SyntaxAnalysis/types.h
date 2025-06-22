@@ -1,6 +1,8 @@
 #pragma once
 #include <iostream>
 
+class IdentifierType; // forward declare
+
 class OCType {
 public:
 	virtual std::string to_string() const { return "<base>"; };
@@ -15,6 +17,7 @@ public:
 
 	OCType() = default;
 	virtual std::unique_ptr<OCType> clone() const = 0;
+	virtual IdentifierType *getBaseType() = 0;
 };
 
 class IdentifierType : public OCType
@@ -36,6 +39,8 @@ public:
 	IdentifierType(const IdentifierType& other)
 		: OCType(), TypeName(other.TypeName) {
 	}
+
+	IdentifierType* getBaseType() override;
 
 	static IdentifierType* GetStringType()
 	{
@@ -83,4 +88,6 @@ public:
 	std::unique_ptr<OCType> clone() const override {
 		return std::make_unique<PointerType>(OfType->clone());
 	}
+
+	IdentifierType* getBaseType() override;
 };

@@ -26,6 +26,7 @@ namespace Overcast::Semantic::Binder
 		std::vector<std::string> ParamTypeNames; // for functions, names of parameters
 		std::vector<Symbol> StructSymbols; // for structs, members of the struct
 		bool Variadic = false;
+		bool IsStructMemberFunc = false;
 
 		Symbol() : Name(""), Kind(SymbolKind::Variable), Type(nullptr) {}
 		Symbol(const std::string& name, SymbolKind kind, OCType* type)
@@ -80,11 +81,12 @@ namespace Overcast::Semantic::Binder
 		void BindVariableDecl(const VariableDeclStatement& varDecl);
 		void BindStructDecl(const StructDeclStatement& structDecl);
 
-		Symbol BindExpression(const Expression& expr);
-		Symbol BindFuncInvoke(const InvokeFunctionExpr& funcInv);
-		Symbol BindVariableUse(const VariableUseExpr& varUse);
+		Symbol BindExpression(Expression& expr);
+		Symbol BindFuncInvoke(InvokeFunctionExpr& funcInv);
+		Symbol BindVariableUse(VariableUseExpr& varUse);
 		Symbol BindBinaryExpr(const BinaryExpr& binExpr);
 		Symbol BindStructCtor(const StructCtorExpr& structCtor);
+		Symbol BindStructAccess(const StructAccessExpr& structAcc);
 
 		void EnterScope()
 		{

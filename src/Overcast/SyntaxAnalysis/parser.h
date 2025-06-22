@@ -24,6 +24,7 @@ namespace Overcast::Parser
 
 		std::unique_ptr<Expression> ParseExpression(int precedence = 0);
 		std::unique_ptr<Expression> ParsePrimaryExpression();
+		std::unique_ptr<Expression> ParsePostfixExpression();
 		std::unique_ptr<Statement> ParseStatement();
 		
 		std::unique_ptr<OCType> ParseType();
@@ -33,7 +34,7 @@ namespace Overcast::Parser
 		std::vector<std::unique_ptr<Statement>> ParseBlockStatement();
 		std::unique_ptr<FunctionDeclStatement> ParseFunctionDeclStatement();
 		std::unique_ptr<VariableDeclStatement> ParseVarDeclStatement();
-		std::unique_ptr<VariableSetStatement> ParseVarSetStatement();
+		std::unique_ptr<AssignmentStatement> ParseAssignmentStatement();
 		std::unique_ptr<StructDeclStatement> ParseStructDeclStatement();
 		std::unique_ptr<IfStatement> ParseIfStatement();
 		std::unique_ptr<ReturnStatement> ParseReturnStatement();
@@ -50,10 +51,11 @@ namespace Overcast::Parser
 		std::unique_ptr<InvokeFunctionExpr> ParseFuncInvokeExpr();
 		std::unique_ptr<StructCtorExpr> ParseStructCtorExpr();
 
-		const Token& Peek() {
+		const Token& Peek(int extra = 0) {
 			// Check if the next token exists
 			auto nextToken = currentToken;
 			++nextToken;  // Move to the next token
+			nextToken += extra;
 
 			// If the next token is out of range, throw an exception
 			if (nextToken == Tokens.end()) {

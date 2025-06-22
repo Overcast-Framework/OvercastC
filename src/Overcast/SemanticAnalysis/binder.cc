@@ -1,4 +1,5 @@
 #include "ocpch.h"
+#include "ocutils.h"
 #include "binder.h"
 
 void Overcast::Semantic::Binder::Binder::BindStatement(const Statement& stmt)
@@ -29,18 +30,18 @@ void Overcast::Semantic::Binder::Binder::BindStatement(const Statement& stmt)
 		this->BindExpression(*exprStmt.EncapsulatedExpr);
 		break;
 	}
-	case Statement::Type::VariableSet:
+	case Statement::Type::Assignment:
 	{
-		const VariableSetStatement& varSetStmt = static_cast<const VariableSetStatement&>(stmt);
-		Symbol varSymbol;
-		if (!this->Scopes.back().TryGetSymbol(varSetStmt.VarName, varSymbol))
-		{
-			throw std::runtime_error("Variable " + varSetStmt.VarName + " is not defined in this scope.");
-		}
-		auto& valueSymbol = this->BindExpression(*varSetStmt.Value);
+		const AssignmentStatement& assgStmt = static_cast<const AssignmentStatement&>(stmt);
+		Symbol varSymbol = BindExpression(*assgStmt.LHS);
+
+		std::cout << OCUtils::demangle(*assgStmt.Value);
+		Symbol valueSymbol = this->BindExpression(*assgStmt.Value);
 		if (valueSymbol.Type->to_string() != varSymbol.Type->to_string())
 		{
-			throw std::runtime_error("Type mismatch in variable assignment: expected " + varSymbol.Type->to_string() +
+			std::cout << valueSymbol.Type->to_string() << std::endl;
+			std::cout << varSymbol.Type->to_string() << std::endl;
+			throw std::runtime_error("Type mismatch in value assignment: expected " + varSymbol.Type->to_string() +
 				", but got " + valueSymbol.Type->to_string() + ".");
 		}
 		break;
@@ -109,10 +110,12 @@ void Overcast::Semantic::Binder::Binder::BindFunctionDecl(const FunctionDeclStat
 	Symbol existingSymbol;
 	if (LookupSymbol(funcDecl.FuncName, existingSymbol))
 	{
-		throw std::runtime_error("Function " + funcDecl.FuncName + " is already defined in this module.");
+		if(!funcDecl.IsStructMember)
+			throw std::runtime_error("Function " + funcDecl.FuncName + " is already defined in this module.");
 	}
 
-	this->Scopes.back().AddSymbol(funcSymbol);
+	if (!funcDecl.IsStructMember)
+		this->Scopes.back().AddSymbol(funcSymbol);
 
 	this->EnterScope();
 
@@ -163,8 +166,7 @@ void Overcast::Semantic::Binder::Binder::BindVariableDecl(const VariableDeclStat
 
 void Overcast::Semantic::Binder::Binder::BindStructDecl(const StructDeclStatement& structDecl)
 {
-	auto& type = IdentifierType{ structDecl.StructName };
-	Symbol structSymbol(structDecl.StructName, SymbolKind::Struct, &type);
+	Symbol structSymbol(structDecl.StructName, SymbolKind::Struct, new IdentifierType(structDecl.StructName));
 	Symbol strCheck("INTERNAL_STRUCT_CHECK", SymbolKind::Variable, &IdentifierType{ "bool" }); // this doesnt matter
 	if (LookupSymbol(structDecl.StructName, strCheck))
 	{
@@ -186,28 +188,32 @@ void Overcast::Semantic::Binder::Binder::BindStructDecl(const StructDeclStatemen
 
 		memberFunc->Parameters.push_back({ std::move(pointerType), "this" });
 		memberFuncSymbol.ParamCount = memberFunc->Parameters.size();
+		memberFuncSymbol.IsStructMemberFunc = true;
+		memberFunc->IsStructMember = true;
 		for (const auto& param : memberFunc->Parameters)
 		{
 			memberFuncSymbol.ParamTypeNames.push_back(param.ParameterType->to_string());
 		}
 
-		BindStatement(*memberFunc);
 		structSymbol.StructSymbols.push_back(memberFuncSymbol);
 	}
-
 	this->Scopes.back().AddSymbol(structSymbol);
+	for (const auto& memberFunc : structDecl.MemberFunctions)
+	{
+		BindStatement(*memberFunc);
+	}
 }
 
-Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindExpression(const Expression& expr)
+Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindExpression(Expression& expr)
 {
-	if (dynamic_cast<const InvokeFunctionExpr*>(&expr))
+	if (dynamic_cast<InvokeFunctionExpr*>(&expr))
 	{
-		const InvokeFunctionExpr& funcInv = static_cast<const InvokeFunctionExpr&>(expr);
+		InvokeFunctionExpr& funcInv = static_cast<InvokeFunctionExpr&>(expr);
 		return this->BindFuncInvoke(funcInv);
 	}
 	else if (dynamic_cast<const VariableUseExpr*>(&expr))
 	{
-		const VariableUseExpr& varUse = static_cast<const VariableUseExpr&>(expr);
+		VariableUseExpr& varUse = static_cast<VariableUseExpr&>(expr);
 		return this->BindVariableUse(varUse);
 	}
 	else if (dynamic_cast<const StringLiteralExpr*>(&expr))
@@ -230,35 +236,48 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindExpre
 	{
 		return this->BindStructCtor(static_cast<const StructCtorExpr&>(expr));
 	}
+	else if (dynamic_cast<const StructAccessExpr*>(&expr))
+	{
+		return this->BindStructAccess(static_cast<const StructAccessExpr&>(expr));
+	}
 	else
 	{
 		throw std::runtime_error("Unsupported expression type for binding.");
 	}
 }
 
-Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindFuncInvoke(const InvokeFunctionExpr& funcInv)
+Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindFuncInvoke(InvokeFunctionExpr& funcInv)
 {
 	Symbol funcSymbol;
-	if (!LookupSymbol(funcInv.InvokedFunctionName, funcSymbol) || funcSymbol.Kind != SymbolKind::Function)
+	funcSymbol = BindExpression(*funcInv.InvokedFunction);
+
+	if (funcSymbol.Kind != SymbolKind::Function)
 	{
-		throw std::runtime_error("Function " + funcInv.InvokedFunctionName + " is not defined in this scope.");
+		throw std::runtime_error("Symbol " + funcSymbol.Name + " is not a function, or is undefined.");
 	}
+
+	if (funcSymbol.IsStructMemberFunc)
+		funcInv.IsStructFunc = true;
 
 	if (!funcSymbol.Variadic)
 	{
-		if (funcInv.Arguments.size() != funcSymbol.ParamCount)
+		auto tsFnArgC = funcSymbol.ParamCount;
+		if (funcSymbol.IsStructMemberFunc)
+			tsFnArgC--;
+
+		if (funcInv.Arguments.size() != tsFnArgC)
 		{
-			throw std::runtime_error("Function " + funcInv.InvokedFunctionName + " expects " +
+			throw std::runtime_error("Function " + funcSymbol.Name + " expects " +
 				std::to_string(funcSymbol.ParamCount) + " arguments, but got " + std::to_string(funcInv.Arguments.size()) + ".");
 		}
 
-		for (int i = 0; i < funcSymbol.ParamCount; i++)
+		for (int i = 0; i < tsFnArgC; i++)
 		{
 			auto& arg = BindExpression(*funcInv.Arguments[i]);
 			if (arg.Type->to_string() != funcSymbol.ParamTypeNames[i])
 			{
 				throw std::runtime_error("Argument " + std::to_string(i + 1) + " of function " +
-					funcInv.InvokedFunctionName + " is of type " + arg.Type->to_string() +
+					funcSymbol.Name + " is of type " + arg.Type->to_string() +
 					", but expected type is " + funcSymbol.ParamTypeNames[i] + ".");
 			}
 		}
@@ -272,13 +291,23 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindFuncI
 	return funcSymbol;
 }
 
-Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindVariableUse(const VariableUseExpr& varUse)
+Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindVariableUse(VariableUseExpr& varUse)
 {
 	Symbol varSymbol;
-	if (!LookupSymbol(varUse.VariableName, varSymbol) || varSymbol.Kind != SymbolKind::Variable)
+	if (!LookupSymbol(varUse.VariableName, varSymbol))
 	{
-		throw std::runtime_error("Variable " + varUse.VariableName + " is not defined in this scope.");
+		throw std::runtime_error(varUse.VariableName + " is not defined in this scope.");
 	}
+
+	if (varSymbol.Kind != SymbolKind::Variable) // ik I could've slammed that into one if statement, but I prefer this over a long condition lol
+	{
+		if (varSymbol.Kind != SymbolKind::Function)
+		{
+			throw std::runtime_error(varUse.VariableName + " is not defined in this scope.");
+		}
+	}
+
+	varUse.isFunc = varSymbol.Kind == SymbolKind::Function;
 	return varSymbol;
 }
 
@@ -302,10 +331,13 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindBinar
 Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindStructCtor(const StructCtorExpr& structCtor)
 {
 	Symbol structSymbol;
+	std::cout << structCtor.StructTypeName << std::endl;
 	if (!LookupSymbol(structCtor.StructTypeName, structSymbol))
 	{
 		throw std::runtime_error("Struct " + structCtor.StructTypeName + " is not defined.");
 	}
+
+	std::cout << structSymbol.Name << std::endl;
 
 	if (structSymbol.Kind != SymbolKind::Struct)
 	{
@@ -324,12 +356,13 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindStruc
 
 	if (ctorSymbol.Name != "<INVALID>")
 	{
-		if (structCtor.Arguments.size() != ctorSymbol.ParamTypeNames.size())
+		std::cout << ctorSymbol.ParamTypeNames.size() << std::endl;
+		if (structCtor.Arguments.size() != ctorSymbol.ParamTypeNames.size()-1)
 		{
 			throw std::runtime_error("No overload of struct " + structCtor.StructTypeName + "'s constructors take " + std::to_string(structCtor.Arguments.size()) + " arguments.");
 		}
 
-		for (int i = 0; i < ctorSymbol.ParamTypeNames.size(); i++)
+		for (int i = 0; i < ctorSymbol.ParamTypeNames.size()-1; i++)
 		{
 			auto& param = ctorSymbol.ParamTypeNames[i];
 			auto& arg = BindExpression(*structCtor.Arguments[i]).Type->to_string();
@@ -348,5 +381,33 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindStruc
 		}
 	}
 
+	std::cout << structSymbol.Type->to_string() << std::endl;
 	return structSymbol;
+}
+
+Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindStructAccess(const StructAccessExpr& structAcc)
+{
+	Symbol structObject = BindExpression(*structAcc.LHS);
+	Symbol structSymbol;
+
+	auto typeName = structObject.Type->getBaseType()->to_string();
+
+	if (!LookupSymbol(typeName, structSymbol))
+	{
+		throw std::runtime_error("Struct " + typeName + " was not defined in this program.");
+	}
+	if (structSymbol.Kind != SymbolKind::Struct)
+	{
+		throw std::runtime_error(structObject.Name + " is not a struct-type symbol.");
+	}
+
+	auto& members = structSymbol.StructSymbols;
+	auto it = std::find_if(members.begin(), members.end(), [&](const Symbol& sym) {
+		return sym.Name == structAcc.MemberName;
+		});
+	if (it == members.end()) {
+		throw std::runtime_error(structAcc.MemberName + " is not a valid member of struct " + structSymbol.Name + ".");
+	}
+
+	return *it;
 }
