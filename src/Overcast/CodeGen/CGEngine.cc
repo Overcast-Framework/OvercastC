@@ -59,7 +59,7 @@ void Overcast::CodeGen::CGEngine::EmitToObjectFile(const std::string& outputFile
 
 	llvm::ModulePassManager modulePM = passBuilder.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
 
-	module->print(llvm::errs(), nullptr);
+	//module->print(llvm::errs(), nullptr);
 
 	modulePM.run(*module, moduleAM);
 
@@ -369,8 +369,6 @@ Overcast::CodeGen::CGResult Overcast::CodeGen::CGEngine::GenerateExpression(Expr
 		RequestPointerAccess = prevPointerState;
 
 		std::string structName = structInst.semanticType->getBaseType()->to_string();
-
-		std::cout << structName << std::endl;
 
 		if (this->RequestPointerAccess)
 		{

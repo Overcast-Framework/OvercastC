@@ -168,7 +168,6 @@ std::unique_ptr<Statement> Overcast::Parser::Parser::ParseStatement()
             break;
     }
 
-    std::cout << Peek().Lexeme << std::endl;
     throw std::runtime_error("Failed to find a valid statement.");
 }
 

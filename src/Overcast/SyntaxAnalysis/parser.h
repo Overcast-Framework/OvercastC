@@ -77,9 +77,7 @@ namespace Overcast::Parser
 
 		inline int GetPrecedence(Token token)
 		{
-			std::cout << "currentToken pointer: " << &currentToken << std::endl;
 			if (token.Type != TokenType::OPERATOR) return -1;
-			std::cout << "currentToken pointer: " << &currentToken << std::endl;
 			std::string op = token.Lexeme;
 			if (op == "=") return 1;
 			else if (op == "->" || op == "<-") return 2;

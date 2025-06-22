@@ -36,7 +36,7 @@ void printFunc(const std::unique_ptr<Statement>& stmt) {
 int main()
 {
 	unsigned long allTimes = 0;
-	for (int i = 0; i < 1; i++)
+	for (int i = 0; i < 100; i++)
 	{
 		auto bstart = std::chrono::high_resolution_clock::now();
 		std::ifstream inFile("examples/hello_world.oc");
@@ -44,37 +44,37 @@ int main()
 		auto start = std::chrono::high_resolution_clock::now();
 		auto tokens = LexAll(code);
 		auto end = std::chrono::high_resolution_clock::now();
-		std::cout << "Lexer time: "
+		/*std::cout << "Lexer time: "
 			<< std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count()
-			<< " ns\n";
+			<< " ns\n";*/
 		try
 		{
 			start = std::chrono::high_resolution_clock::now();
 			Overcast::Parser::Parser parser(tokens);
 			auto AST = parser.Parse();
 			end = std::chrono::high_resolution_clock::now();
-			std::cout << "Parse time: "
+			/*std::cout << "Parse time: "
 				<< std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count()
-				<< " ns\n";
+				<< " ns\n";*/
 			start = std::chrono::high_resolution_clock::now();
 			Overcast::Semantic::Binder::Binder binder;
 			binder.Run(AST);
 			end = std::chrono::high_resolution_clock::now();
-			std::cout << "Bind time: "
+			/*std::cout << "Bind time: "
 				<< std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count()
-				<< " ns\n";
+				<< " ns\n";*/
 
 			start = std::chrono::high_resolution_clock::now();
 			Overcast::CodeGen::CGEngine codeGen("helloworld");
 			auto module = codeGen.Generate(AST);
 			end = std::chrono::high_resolution_clock::now();
-			codeGen.EmitToObjectFile("helloworld.obj", module);
-			module->print(llvm::errs(), nullptr);
+			//codeGen.EmitToObjectFile("helloworld.obj", module);
+			//module->print(llvm::errs(), nullptr);
 			end = std::chrono::high_resolution_clock::now();
 
-			std::cout << "CodeGen time: "
+			/*std::cout << "CodeGen time: "
 				<< std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count()
-				<< " ns\n";
+				<< " ns\n";*/
 
 			auto bend = std::chrono::high_resolution_clock::now();
 			allTimes += std::chrono::duration_cast<std::chrono::nanoseconds>(bend - bstart).count();
@@ -92,8 +92,8 @@ int main()
 	}
 
 	std::cout << "Average time: "
-		<< allTimes / 1
-		<< " ns\n";
+		<< (allTimes / 100)/1000000
+		<< " ms\n";
 
 	std::cout << "Total time: "
 		<< allTimes

@@ -35,12 +35,9 @@ void Overcast::Semantic::Binder::Binder::BindStatement(const Statement& stmt)
 		const AssignmentStatement& assgStmt = static_cast<const AssignmentStatement&>(stmt);
 		Symbol varSymbol = BindExpression(*assgStmt.LHS);
 
-		std::cout << OCUtils::demangle(*assgStmt.Value);
 		Symbol valueSymbol = this->BindExpression(*assgStmt.Value);
 		if (valueSymbol.Type->to_string() != varSymbol.Type->to_string())
 		{
-			std::cout << valueSymbol.Type->to_string() << std::endl;
-			std::cout << varSymbol.Type->to_string() << std::endl;
 			throw std::runtime_error("Type mismatch in value assignment: expected " + varSymbol.Type->to_string() +
 				", but got " + valueSymbol.Type->to_string() + ".");
 		}
@@ -331,13 +328,10 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindBinar
 Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindStructCtor(const StructCtorExpr& structCtor)
 {
 	Symbol structSymbol;
-	std::cout << structCtor.StructTypeName << std::endl;
 	if (!LookupSymbol(structCtor.StructTypeName, structSymbol))
 	{
 		throw std::runtime_error("Struct " + structCtor.StructTypeName + " is not defined.");
 	}
-
-	std::cout << structSymbol.Name << std::endl;
 
 	if (structSymbol.Kind != SymbolKind::Struct)
 	{
@@ -356,7 +350,6 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindStruc
 
 	if (ctorSymbol.Name != "<INVALID>")
 	{
-		std::cout << ctorSymbol.ParamTypeNames.size() << std::endl;
 		if (structCtor.Arguments.size() != ctorSymbol.ParamTypeNames.size()-1)
 		{
 			throw std::runtime_error("No overload of struct " + structCtor.StructTypeName + "'s constructors take " + std::to_string(structCtor.Arguments.size()) + " arguments.");
@@ -381,7 +374,6 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindStruc
 		}
 	}
 
-	std::cout << structSymbol.Type->to_string() << std::endl;
 	return structSymbol;
 }
 
