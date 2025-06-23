@@ -37,6 +37,7 @@ namespace Overcast::Parser
 		std::unique_ptr<AssignmentStatement> ParseAssignmentStatement();
 		std::unique_ptr<StructDeclStatement> ParseStructDeclStatement();
 		std::unique_ptr<IfStatement> ParseIfStatement();
+		std::unique_ptr<WhileStatement> ParseWhileStatement();
 		std::unique_ptr<ReturnStatement> ParseReturnStatement();
 		std::unique_ptr<ConstDeclStatement> ParseConstDeclStatement();
 

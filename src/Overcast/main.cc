@@ -36,11 +36,21 @@ void printFunc(const std::unique_ptr<Statement>& stmt) {
 int main()
 {
 	unsigned long allTimes = 0;
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < 1; i++)
 	{
 		auto bstart = std::chrono::high_resolution_clock::now();
-		std::ifstream inFile("examples/hello_world.oc");
-		std::string code((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>());
+		std::ifstream inFile("examples/hello_world.oc", std::ios::in | std::ios::binary);
+		if (!inFile) {
+			std::cerr << "Failed to open file\n";
+			return 1;
+		}
+
+		inFile.seekg(0, std::ios::end);
+		size_t size = inFile.tellg();
+		inFile.seekg(0, std::ios::beg);
+
+		std::string code(size, '\0');
+		inFile.read(&code[0], size);
 		auto start = std::chrono::high_resolution_clock::now();
 		auto tokens = LexAll(code);
 		auto end = std::chrono::high_resolution_clock::now();
@@ -68,8 +78,8 @@ int main()
 			Overcast::CodeGen::CGEngine codeGen("helloworld");
 			auto module = codeGen.Generate(AST);
 			end = std::chrono::high_resolution_clock::now();
-			//codeGen.EmitToObjectFile("helloworld.obj", module);
-			//module->print(llvm::errs(), nullptr);
+			codeGen.EmitToObjectFile("helloworld.obj", module);
+			module->print(llvm::errs(), nullptr);
 			end = std::chrono::high_resolution_clock::now();
 
 			/*std::cout << "CodeGen time: "
@@ -92,7 +102,7 @@ int main()
 	}
 
 	std::cout << "Average time: "
-		<< (allTimes / 100)/1000000
+		<< (float)(allTimes)/1000000.0f
 		<< " ms\n";
 
 	std::cout << "Total time: "

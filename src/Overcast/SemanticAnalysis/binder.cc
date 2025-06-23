@@ -64,6 +64,20 @@ void Overcast::Semantic::Binder::Binder::BindStatement(const Statement& stmt)
 		}
 		break;
 	}
+	case Statement::Type::While:
+	{
+		const WhileStatement& whStmt = static_cast<const WhileStatement&>(stmt);
+		auto& conditionSymbol = this->BindExpression(*whStmt.Condition);
+		if (conditionSymbol.Type->to_string() != "bool")
+		{
+			throw std::runtime_error("Condition in while statement must be of type bool, but got " + conditionSymbol.Type->to_string() + ".");
+		}
+		for (const auto& bodyStmt : whStmt.Body)
+		{
+			this->BindStatement(*bodyStmt);
+		}
+		break;
+	}
 	case Statement::Type::Return:
 	{
 		const ReturnStatement& retStmt = static_cast<const ReturnStatement&>(stmt);

@@ -15,6 +15,7 @@ public:
 		Return,
 		Assignment,
 		If,
+		While,
 		StructDecl,
 		Expression // As in Expression Statements
 	};
@@ -141,6 +142,17 @@ public:
 	std::vector<std::unique_ptr<Statement>> ElseBody;
 	IfStatement(std::unique_ptr<Expression> condition, std::vector<std::unique_ptr<Statement>>&& body, std::vector<std::unique_ptr<Statement>>&& elseBody)
 		: Statement{ Type::If }, Condition(std::move(condition)), Body(std::move(body)), ElseBody(std::move(elseBody))
+	{
+	}
+};
+
+class WhileStatement : public Statement
+{
+public:
+	std::unique_ptr<Expression> Condition;
+	std::vector<std::unique_ptr<Statement>> Body;
+	WhileStatement(std::unique_ptr<Expression> condition, std::vector<std::unique_ptr<Statement>>&& body)
+		: Statement{ Type::While }, Condition(std::move(condition)), Body(std::move(body))
 	{
 	}
 };

@@ -139,9 +139,9 @@ std::unique_ptr<Statement> Overcast::Parser::Parser::ParseStatement()
 			{
 				return ParseIfStatement();
 			}
-			else if (currentToken->Lexeme == "while" || currentToken->Lexeme == "for") // loop statement
+			else if (currentToken->Lexeme == "while") // loop statement
 			{
-				throw std::runtime_error("Loop statements are not implemented yet.");
+				return ParseWhileStatement();
 			}
 			else if (currentToken->Lexeme == "use" || currentToken->Lexeme == "import") // import statement
 			{
@@ -208,7 +208,7 @@ std::vector<std::unique_ptr<Statement>> Overcast::Parser::Parser::ParseBlockStat
     while (currentToken->Lexeme != "}")
     {
         auto statement = ParseStatement();
-        if (statement->m_Type != Statement::Type::If)
+        if (statement->m_Type != Statement::Type::If && statement->m_Type != Statement::Type::While)
         {
             Match(TokenType::SYMBOL, ";");
         }
@@ -363,6 +363,17 @@ std::unique_ptr<IfStatement> Overcast::Parser::Parser::ParseIfStatement()
 		elseBody = ParseBlockStatement();
 	}
 	return std::make_unique<IfStatement>(std::move(condition), std::move(body), std::move(elseBody));
+}
+
+std::unique_ptr<WhileStatement> Overcast::Parser::Parser::ParseWhileStatement()
+{
+    Match(TokenType::KEYWORD, "while");
+    Match(TokenType::SYMBOL, "(");
+    auto condition = ParseExpression();
+    Match(TokenType::SYMBOL, ")");
+    auto body = ParseBlockStatement();
+
+    return std::make_unique<WhileStatement>(std::move(condition), std::move(body));
 }
 
 std::unique_ptr<ReturnStatement> Overcast::Parser::Parser::ParseReturnStatement()

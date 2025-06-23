@@ -59,7 +59,7 @@ void Overcast::CodeGen::CGEngine::EmitToObjectFile(const std::string& outputFile
 
 	llvm::ModulePassManager modulePM = passBuilder.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
 
-	//module->print(llvm::errs(), nullptr);
+	module->print(llvm::errs(), nullptr);
 
 	modulePM.run(*module, moduleAM);
 
@@ -105,6 +105,10 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateStatement(Statement& statement
 	else if (auto ifStmt = dynamic_cast<IfStatement*>(&statement))
 	{
 		return GenerateIfStatement(*ifStmt);
+	}
+	else if (auto whStmt = dynamic_cast<WhileStatement*>(&statement))
+	{
+		return GenerateWhileStatement(*whStmt);
 	}
 	else if (auto constDecl = dynamic_cast<ConstDeclStatement*>(&statement))
 	{
@@ -211,30 +215,66 @@ llvm::AllocaInst* CreateEntryBlockAlloca(llvm::Function* func, llvm::Type* type,
 	return tmpBuilder.CreateAlloca(type, nullptr, varName);
 }
 
-llvm::Value* Overcast::CodeGen::CGEngine::GenerateVarDecl(const VariableDeclStatement& varDecl)
+llvm::Value* Overcast::CodeGen::CGEngine::GenerateVarDecl(const VariableDeclStatement& varDecl) // because this can be in a loop, we need a condition
 {
-	auto* varType = GetLLVMType(*varDecl.VariableType);
-	llvm::AllocaInst* varAlloca = nullptr;
-
-	if (varDecl.Defined && varDecl.DefaultValue)
+	if (symbolTable.find(varDecl.VarName) == symbolTable.end())
 	{
-		if (!dynamic_cast<StructCtorExpr*>(varDecl.DefaultValue.get()))
-		{
-			varAlloca = CreateEntryBlockAlloca(currentFunction, varType, "var:" + varDecl.VarName);
-			CGResult initValue = GenerateExpression(*varDecl.DefaultValue.get());
-			builder.CreateStore(initValue.value, varAlloca);
-		}
-		else
-		{
-			CGResult initValue = GenerateExpression(*varDecl.DefaultValue.get());
-			varAlloca = llvm::dyn_cast<llvm::AllocaInst>(initValue.value);
-		}
-	}
+		auto* varType = GetLLVMType(*varDecl.VariableType);
+		llvm::AllocaInst* varAlloca = nullptr;
 
-	symbolTable[varDecl.VarName] = varAlloca;
-	typedSymbolTable[varDecl.VarName] = { varType };
-	semanticTypeTable[varDecl.VarName] = { varDecl.VariableType.get() };
-	return varAlloca;
+		if (varDecl.Defined && varDecl.DefaultValue)
+		{
+			if (!dynamic_cast<StructCtorExpr*>(varDecl.DefaultValue.get()))
+			{
+				varAlloca = CreateEntryBlockAlloca(currentFunction, varType, "var:" + varDecl.VarName);
+				CGResult initValue = GenerateExpression(*varDecl.DefaultValue.get());
+				builder.CreateStore(initValue.value, varAlloca);
+			}
+			else
+			{
+				CGResult initValue = GenerateExpression(*varDecl.DefaultValue.get());
+				varAlloca = llvm::dyn_cast<llvm::AllocaInst>(initValue.value);
+			}
+		}
+
+		symbolTable[varDecl.VarName] = varAlloca;
+		typedSymbolTable[varDecl.VarName] = { varType };
+		semanticTypeTable[varDecl.VarName] = { varDecl.VariableType.get() };
+		return varAlloca;
+	}
+	else // it's already 'defined' just scoping rules make it valid
+	{
+		auto varAlloca = symbolTable[varDecl.VarName];
+		auto type = GetLLVMType(*varDecl.VariableType);
+		CGResult initValue;
+		// just store it
+		if (varDecl.Defined && varDecl.DefaultValue)
+		{
+			if (!dynamic_cast<StructCtorExpr*>(varDecl.DefaultValue.get()))
+			{
+				initValue = GenerateExpression(*varDecl.DefaultValue.get());
+				builder.CreateStore(initValue.value, varAlloca);
+			}
+			else
+			{
+				initValue = GenerateExpression(*varDecl.DefaultValue.get());
+				varAlloca = llvm::dyn_cast<llvm::AllocaInst>(initValue.value);
+			}
+		}
+
+		// update the data, just in case
+		symbolTable[varDecl.VarName] = varAlloca;
+		typedSymbolTable[varDecl.VarName] = { type };
+		semanticTypeTable[varDecl.VarName] = { varDecl.VariableType.get() };
+
+		if (phiTable.find(varDecl.VarName) != phiTable.end())
+		{
+			auto phiNode = phiTable[varDecl.VarName];
+			phiNode->addIncoming(initValue.value, builder.GetInsertBlock());
+		}
+
+		return varAlloca;
+	}
 }
 
 #pragma optimize("", off)
@@ -259,6 +299,14 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateVarSet(const AssignmentStateme
 	else
 	{
 		auto value = GenerateExpression(*assign.Value);
+		if (auto varExpr = dynamic_cast<const VariableUseExpr*>(assign.LHS.get()))
+		{
+			if (phiTable.find(varExpr->VariableName) != phiTable.end())
+			{
+				auto phiNode = phiTable[varExpr->VariableName];
+				phiNode->addIncoming(value.value, builder.GetInsertBlock());
+			}
+		}
 		builder.CreateStore(value.value, inst.value);
 	}
 
@@ -310,6 +358,105 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateIfStatement(const IfStatement&
 	builder.SetInsertPoint(mergeBlock);
 
 	return nullptr;
+}
+
+std::string Overcast::CodeGen::CGEngine::AnalyzeExpression(Expression& expression)
+{
+	if (auto varExpr = dynamic_cast<const VariableUseExpr*>(&expression))
+	{
+		return varExpr->VariableName;
+	}
+
+	return "<NO>";
+}
+
+std::vector<Overcast::CodeGen::PhiVariable> Overcast::CodeGen::CGEngine::AnalyzePHIVariables(const std::vector<std::unique_ptr<Statement>>& statements)
+{
+	std::vector<PhiVariable> phiVariables;
+	for (const auto& stmt : statements)
+	{
+		if (auto varDeclStatement = dynamic_cast<const VariableDeclStatement*>(stmt.get()))
+		{
+			std::cout << "hi" << std::endl;
+			if (symbolTable.find(varDeclStatement->VarName) != symbolTable.end())
+			{
+				PhiVariable var;
+				var.value = symbolTable[varDeclStatement->VarName];
+				var.type = typedSymbolTable[varDeclStatement->VarName].type;
+				var.name = varDeclStatement->VarName;
+
+				phiVariables.push_back(var);
+			}
+			else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt.get()))
+			{
+				std::cout << "hi" << std::endl;
+				PhiVariable var;
+				var.name = AnalyzeExpression(*assignStmt->LHS);
+				if (var.name == "<NO>")
+					continue;
+
+				var.value = symbolTable[var.name];
+				var.type = typedSymbolTable[var.name].type;
+
+				phiVariables.push_back(var);
+			}
+		}
+	}
+
+	return phiVariables;
+}
+
+llvm::Value* Overcast::CodeGen::CGEngine::GenerateWhileStatement(const WhileStatement& whStmt, llvm::BasicBlock* exitTarget)
+{
+	llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+	auto condBlock = llvm::BasicBlock::Create(context, "conditionBlock", function);
+	auto loopBlock = llvm::BasicBlock::Create(context, "loopBlock", function);
+	auto mergeBlock = llvm::BasicBlock::Create(context, "whileCont", function);
+
+	builder.CreateBr(condBlock);
+
+	// Condition Block
+	builder.SetInsertPoint(condBlock);
+	auto phiVarList = AnalyzePHIVariables(whStmt.Body);
+	auto oldPHITable = phiTable;
+	for (auto& phiVar : phiVarList)
+	{
+		auto phiNode = builder.CreatePHI(phiVar.type, 2, phiVar.name + "_phi");
+		phiNode->addIncoming(builder.CreateLoad(phiVar.type, phiVar.value, "loadInitial"), builder.GetInsertBlock());
+		phiTable[phiVar.name] = phiNode;
+	}
+
+	llvm::Value* condition = GenerateExpression(*whStmt.Condition.get()).value;
+	if (!condition->getType()->isIntegerTy(1))
+		throw std::runtime_error("Condition in while statement must be of type bool.");
+
+	builder.CreateCondBr(condition, loopBlock, mergeBlock);
+
+	// Loop Block
+	builder.SetInsertPoint(loopBlock);
+	for (const auto& stmt : whStmt.Body)
+	{
+		if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt.get()))
+		{
+			auto nestedMerge = llvm::dyn_cast<llvm::BasicBlock>(GenerateWhileStatement(*whileStmt, condBlock));
+			builder.SetInsertPoint(nestedMerge);
+		}
+		else
+		{
+			GenerateStatement(*stmt);
+		}
+	}
+
+	// Close Loop Block
+	if (!builder.GetInsertBlock()->getTerminator())
+		builder.CreateBr(condBlock);
+
+	// Merge Block
+	builder.SetInsertPoint(mergeBlock);
+
+	phiTable = oldPHITable;
+	return mergeBlock;
 }
 
 llvm::Value* Overcast::CodeGen::CGEngine::GetStructMemberPointer(const std::string& structName, llvm::Value* structInst, const std::string& memberName)

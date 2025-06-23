@@ -36,6 +36,13 @@ namespace Overcast::CodeGen {
 		llvm::Type* type; // may add more
 	};
 
+	struct PhiVariable
+	{
+		llvm::Value* value;
+		llvm::Type* type;
+		std::string name;
+	};
+
 	struct CGResult
 	{
 		llvm::Value* value;
@@ -53,11 +60,17 @@ namespace Overcast::CodeGen {
 
 		bool RequestPointerAccess = false; // a lil' flag for struct access
 		bool RequestFunctionAccess = false; // same as above
+		bool analyzePhiVariables = false; // for looping
 
 		std::unordered_map<std::string, llvm::Value*> symbolTable;
+		std::unordered_map<std::string, llvm::PHINode*> phiTable;
 		std::unordered_map<std::string, SymbolDef> typedSymbolTable;
 		std::unordered_map<std::string, OCType*> semanticTypeTable;
 		std::unordered_map<std::string, StructDef> structDefTable;
+
+		std::vector<PhiVariable> PhiVariableList; // this gets cleared for each analysis
+
+		llvm::BasicBlock* currentLoopBlock = nullptr;
 
 		llvm::Value* GenerateStatement(Statement& statement);
 		llvm::Value* GenerateFunction(const FunctionDeclStatement& funcDecl);
@@ -66,6 +79,9 @@ namespace Overcast::CodeGen {
 		llvm::Value* GenerateVarDecl(const VariableDeclStatement& varDecl);
 		llvm::Value* GenerateVarSet(const AssignmentStatement& varSet);
 		llvm::Value* GenerateIfStatement(const IfStatement& ifStmt);
+		std::string AnalyzeExpression(Expression& expression);
+		std::vector<PhiVariable> AnalyzePHIVariables(const std::vector<std::unique_ptr<Statement>>& statements);
+		llvm::Value* GenerateWhileStatement(const WhileStatement& whStmt, llvm::BasicBlock* parentCondition = nullptr);
 		CGResult GenerateExpression(Expression& expression);
 		CGResult GenerateFunctionCall(const InvokeFunctionExpr& funcCall);
 		CGResult GenerateStructCtor(StructCtorExpr* strCtorExpr, llvm::Value* overridePtr = nullptr);
