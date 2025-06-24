@@ -33,6 +33,8 @@
     <ClInclude Include="src\Overcast\lexer.h" />
     <ClInclude Include="src\Overcast\ocpch.h" />
     <ClInclude Include="src\Overcast\ocutils.h" />
+    <ClInclude Include="src\Overcast\ProjectSystem\toml.hpp" />
+    <ClInclude Include="src\Overcast\ProjectSystem\project_system.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Overcast\CodeGen\CGEngine.cc">
@@ -50,5 +52,6 @@
     <ClCompile Include="src\Overcast\lexer.cc" />
     <ClCompile Include="src\Overcast\main.cc" />
     <ClCompile Include="src\Overcast\ocpch.cc" />
+    <ClCompile Include="src\Overcast\ProjectSystem\project_system.cpp" />
   </ItemGroup>
 </Project>

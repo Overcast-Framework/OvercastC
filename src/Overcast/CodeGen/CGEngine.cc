@@ -387,19 +387,19 @@ std::vector<Overcast::CodeGen::PhiVariable> Overcast::CodeGen::CGEngine::Analyze
 
 				phiVariables.push_back(var);
 			}
-			else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt.get()))
-			{
-				std::cout << "hi" << std::endl;
-				PhiVariable var;
-				var.name = AnalyzeExpression(*assignStmt->LHS);
-				if (var.name == "<NO>")
-					continue;
+		}
+		else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt.get()))
+		{
+			std::cout << "hi" << std::endl;
+			PhiVariable var;
+			var.name = AnalyzeExpression(*assignStmt->LHS);
+			if (var.name == "<NO>")
+				continue;
 
-				var.value = symbolTable[var.name];
-				var.type = typedSymbolTable[var.name].type;
+			var.value = symbolTable[var.name];
+			var.type = typedSymbolTable[var.name].type;
 
-				phiVariables.push_back(var);
-			}
+			phiVariables.push_back(var);
 		}
 	}
 

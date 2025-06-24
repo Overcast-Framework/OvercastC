@@ -8,6 +8,7 @@
 #include "Overcast/SyntaxAnalysis/types.h"
 #include "Overcast/SemanticAnalysis/binder.h"
 #include "Overcast/CodeGen/CGEngine.h"
+#include "Overcast/ProjectSystem/project_system.h"
 
 std::string agetTokenName(TokenType tok)
 {
@@ -35,6 +36,21 @@ void printFunc(const std::unique_ptr<Statement>& stmt) {
 
 int main()
 {
+	Overcast::ProjectSystem::Project proj;
+	proj.ProjectName = "HelloWorld";
+	proj.ProjectVersion = Overcast::ProjectSystem::Version::parse("1.0.0-dev+20250624");
+	proj.CompilerVersion = Overcast::ProjectSystem::Version::parse("1.0.0");
+	proj.DependencyDirectories.push_back("C:\\path\\to\\stdlib");
+	proj.Dependencies.push_back({ "stdlib", Overcast::ProjectSystem::Version::parse("1.0.0") });
+	proj.Dependencies.push_back({ "test_dep", Overcast::ProjectSystem::Version::parse("1.39.40-rc1+31000825") });
+	proj.no_std = false;
+	proj.emit_llvm = true;
+	proj.skip_autolink = false;
+	proj.outputFolder = "bin/Release";
+
+	auto project = Overcast::ProjectSystem::Project::LoadFromTOML(proj.SerializeTOML());
+	std::cout << project.ProjectName << std::endl;
+
 	unsigned long allTimes = 0;
 	for (int i = 0; i < 1; i++)
 	{

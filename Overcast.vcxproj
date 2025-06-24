@@ -99,6 +99,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\Overcast\CodeGen\CGEngine.h" />
+    <ClInclude Include="src\Overcast\ProjectSystem\project_system.h" />
+    <ClInclude Include="src\Overcast\ProjectSystem\toml.hpp" />
     <ClInclude Include="src\Overcast\SemanticAnalysis\binder.h" />
     <ClInclude Include="src\Overcast\SyntaxAnalysis\expressions.h" />
     <ClInclude Include="src\Overcast\SyntaxAnalysis\parser.h" />
@@ -110,6 +112,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Overcast\CodeGen\CGEngine.cc" />
+    <ClCompile Include="src\Overcast\ProjectSystem\project_system.cpp" />
     <ClCompile Include="src\Overcast\SemanticAnalysis\binder.cc" />
     <ClCompile Include="src\Overcast\SyntaxAnalysis\parser.cc" />
     <ClCompile Include="src\Overcast\SyntaxAnalysis\types.cc" />
