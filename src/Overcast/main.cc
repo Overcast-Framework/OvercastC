@@ -36,7 +36,7 @@ void create_project(std::string name, bool nostd, bool noal, bool emit_llvm)
 	projectFile.close();
 
 	std::ofstream ocFile(cwd / name / "main.oc");
-	ocFile << "package " << name << ";\n";
+	ocFile << "package " << name << "\n";
 	ocFile << OC_EXAMPLE_HELLOWORLD;
 	ocFile.close();
 
@@ -115,9 +115,9 @@ int main(int argc, char* argv[])
 			("emit-llvm", "Emit LLVM IR")          
 			("no_std", "Disable standard library")   
 			("no_autolink", "Disable autolink")  
-			("c,configuration", "Set configuration for build", cxxopts::value<std::string>()->default_value("Debug"))
-			("t,threads", "Thread count", cxxopts::value<int>()->default_value(std::to_string(std::thread::hardware_concurrency())))
-			("h,help", "Print help");
+			("c", "Set configuration for build", cxxopts::value<std::string>()->default_value("Debug"))
+			("t", "Thread count", cxxopts::value<int>()->default_value(std::to_string(std::thread::hardware_concurrency())))
+			("help", "Print help");
 
 		opts.parse_positional({ "command", "project" });
 
