@@ -1,7 +1,7 @@
 #include "ocpch.h"
 #include "CGEngine.h"
 
-llvm::Module* Overcast::CodeGen::CGEngine::Generate(const std::vector<std::unique_ptr<Statement>>& statements)
+llvm::Module* Overcast::CodeGen::CGEngine::Generate(std::unordered_map<std::string, Overcast::Semantic::Binder::Symbol> globalSymbols, const std::vector<std::unique_ptr<Statement>>& statements)
 {
 	// import printf from C
 	llvm::FunctionType* printType = llvm::FunctionType::get(
@@ -11,7 +11,74 @@ llvm::Module* Overcast::CodeGen::CGEngine::Generate(const std::vector<std::uniqu
 	);
 
 	auto* func = llvm::Function::Create(printType, llvm::Function::ExternalLinkage, "printf", this->module.get());
-	symbolTable["print"] = func;
+	symbolTable["func:print"] = func;
+
+	for (const auto& s : globalSymbols)
+	{
+		auto symbol = s.second;
+		if (symbol.Kind == Overcast::Semantic::Binder::SymbolKind::Function)
+		{
+			std::vector<llvm::Type*> parameters;
+
+			for (const auto& param : symbol.ParamTypes)
+			{
+				parameters.push_back(GetLLVMType(*param));
+			}
+
+			llvm::FunctionType* fType = llvm::FunctionType::get(
+				GetLLVMType(*symbol.Type),
+				parameters,
+				false
+			);
+
+			auto* _func = llvm::Function::Create(fType, llvm::Function::ExternalLinkage, "func:" + s.first, this->module.get());
+			symbolTable["func:"+s.first] = _func;
+			typedSymbolTable["func:" + s.first] = { fType->getReturnType() };
+			semanticTypeTable["func:" + s.first] = s.second.Type;
+		}
+		else if (symbol.Kind == Overcast::Semantic::Binder::SymbolKind::Struct)
+		{
+			std::vector<llvm::Type*> memberVars;
+			std::map<std::string, StructDef::StructMember> StructMembers;
+
+			int idx = 0;
+			for (const auto& var : symbol.StructSymbols)
+			{
+				if (var.Kind == Overcast::Semantic::Binder::SymbolKind::Variable)
+				{
+					memberVars.push_back(GetLLVMType(*var.Type));
+					StructMembers[var.Name] = { memberVars.back(), var.Name, idx++, var.Type };
+				}
+			}
+
+			auto* structType = llvm::StructType::create(memberVars, symbol.Name, false);
+			structDefTable[symbol.Name] = { structType, StructMembers, symbol.Type };
+
+			for (const auto& memFunc : symbol.StructSymbols)
+			{
+				if (memFunc.Kind == Overcast::Semantic::Binder::SymbolKind::Function)
+				{
+					std::vector<llvm::Type*> parameters;
+
+					for (const auto& param : memFunc.ParamTypes)
+					{
+						parameters.push_back(GetLLVMType(*param));
+					}
+
+					llvm::FunctionType* fType = llvm::FunctionType::get(
+						GetLLVMType(*memFunc.Type),
+						parameters,
+						false
+					);
+
+					auto* _func = llvm::Function::Create(fType, llvm::Function::ExternalLinkage, symbol.Name + "::" + memFunc.Name, this->module.get());
+					symbolTable[symbol.Name + "::" + memFunc.Name] = _func;
+					typedSymbolTable[symbol.Name + "::" + memFunc.Name] = { fType->getReturnType() };
+					semanticTypeTable[symbol.Name + "::" + memFunc.Name] = memFunc.Type;
+				}
+			}
+		}
+	}
 
 	for (auto& statement : statements)
 	{
@@ -59,7 +126,7 @@ void Overcast::CodeGen::CGEngine::EmitToObjectFile(const std::string& outputFile
 
 	llvm::ModulePassManager modulePM = passBuilder.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
 
-	module->print(llvm::errs(), nullptr);
+	//module->print(llvm::errs(), nullptr);
 
 	modulePM.run(*module, moduleAM);
 
@@ -114,6 +181,14 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateStatement(Statement& statement
 	{
 		throw std::runtime_error("Const declarations are not supported yet.");
 	}
+	else if (dynamic_cast<UseStatement*>(&statement))
+	{
+		// irrelevant here
+	}
+	else if (dynamic_cast<PackageDeclStatement*>(&statement))
+	{
+		// irrelevant here
+	}
 	else
 	{
 		throw std::runtime_error("Unsupported statement type for code generation.");
@@ -122,27 +197,38 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateStatement(Statement& statement
 
 llvm::Value* Overcast::CodeGen::CGEngine::GenerateFunction(const FunctionDeclStatement& funcDecl)
 {
-	std::vector<llvm::Type*> paramTypes;
-	for (auto& param : funcDecl.Parameters)
+	llvm::Function* function = nullptr;
+	llvm::Type* returnType = nullptr;
+
+	if (symbolTable.find("func:"+funcDecl.FuncName) == symbolTable.end())
 	{
-		paramTypes.push_back(GetLLVMType(*param.ParameterType));
+		std::vector<llvm::Type*> paramTypes;
+		for (auto& param : funcDecl.Parameters)
+		{
+			paramTypes.push_back(GetLLVMType(*param.ParameterType));
+		}
+
+		returnType = GetLLVMType(*funcDecl.ReturnType);
+		llvm::FunctionType* funcType = llvm::FunctionType::get(returnType, paramTypes, false);
+		function = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, funcDecl.FuncName == "main" ? "main" : funcDecl.IsExtern ? funcDecl.FuncName : "func:" + funcDecl.FuncName, module.get());
+
+		if (funcDecl.IsExtern)
+		{
+			symbolTable.insert({ funcDecl.FuncName == "main" ? "main" : funcDecl.FuncName, function });
+			function->setLinkage(llvm::Function::ExternalLinkage); // just to make sure
+			return function;
+		}
 	}
-
-	llvm::Type* returnType = GetLLVMType(*funcDecl.ReturnType);
-	llvm::FunctionType* funcType = llvm::FunctionType::get(returnType, paramTypes, false);
-	llvm::Function* function = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, funcDecl.FuncName == "main" ? "main" : funcDecl.IsExtern ? funcDecl.FuncName : "func:"+funcDecl.FuncName, module.get());
-
-	if (funcDecl.IsExtern)
+	else
 	{
-		symbolTable.insert({ funcDecl.FuncName == "main" ? "main" : funcDecl.FuncName, function });
-		function->setLinkage(llvm::Function::ExternalLinkage); // just to make sure
-		return function;
+		function = llvm::dyn_cast<llvm::Function>(symbolTable["func:" + funcDecl.FuncName]);
+		returnType = typedSymbolTable["func:" + funcDecl.FuncName].type;
 	}
 
 	for (auto& arg : function->args()) {
 		arg.setName(funcDecl.Parameters[arg.getArgNo()].ParameterName);
 		symbolTable[arg.getName().str()] = &arg;
-		typedSymbolTable[arg.getName().str()] = {arg.getType()};
+		typedSymbolTable[arg.getName().str()] = { arg.getType() };
 		auto it = std::find_if(funcDecl.Parameters.begin(), funcDecl.Parameters.end(), [&](const Parameter& param) {
 			return param.ParameterName == arg.getName().str();
 			});
@@ -200,9 +286,6 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateStructDecl(const StructDeclSta
 	// then the ~member functions~
 	for (auto& fDecl : strDecl.MemberFunctions) {
 		fDecl->FuncName = strDecl.StructName + "::" + fDecl->FuncName;
-
-		auto regType = std::make_unique<IdentifierType>(strDecl.StructName);
-		auto pointerType = std::make_unique<PointerType>(std::move(regType));
 		semanticTypeTable[fDecl->FuncName] = fDecl->ReturnType.get();
 		GenerateFunction(*fDecl);
 	}
@@ -483,22 +566,25 @@ Overcast::CodeGen::CGResult Overcast::CodeGen::CGEngine::GenerateExpression(Expr
 	}
 	else if (auto varExpr = dynamic_cast<VariableUseExpr*>(&expression))
 	{
-		if (symbolTable.find(varExpr->VariableName) == symbolTable.end())
+		if (symbolTable.find(varExpr->VariableName) == symbolTable.end() && !varExpr->isFunc)
 		{
 			throw std::runtime_error("Variable " + varExpr->VariableName + " not found in symbol table.");
 		}
-		if (symbolTable[varExpr->VariableName]->getName().starts_with("var:")) // var check
+		if (!varExpr->isFunc) // var check
 		{
-			llvm::Value* ptrValue = symbolTable[varExpr->VariableName];
-			if (RequestPointerAccess)
+			if (symbolTable[varExpr->VariableName]->getName().starts_with("var:"))
 			{
-				return { ptrValue, llvm::dyn_cast<llvm::AllocaInst>(ptrValue)->getAllocatedType(), semanticTypeTable[varExpr->VariableName] };
+				llvm::Value* ptrValue = symbolTable[varExpr->VariableName];
+				if (RequestPointerAccess)
+				{
+					return { ptrValue, llvm::dyn_cast<llvm::AllocaInst>(ptrValue)->getAllocatedType(), semanticTypeTable[varExpr->VariableName] };
+				}
+				return { builder.CreateLoad(llvm::dyn_cast<llvm::AllocaInst>(ptrValue)->getAllocatedType(), ptrValue, varExpr->VariableName), llvm::dyn_cast<llvm::AllocaInst>(ptrValue)->getAllocatedType(), semanticTypeTable[varExpr->VariableName] };
 			}
-			return { builder.CreateLoad(llvm::dyn_cast<llvm::AllocaInst>(ptrValue)->getAllocatedType(), ptrValue, varExpr->VariableName), llvm::dyn_cast<llvm::AllocaInst>(ptrValue)->getAllocatedType(), semanticTypeTable[varExpr->VariableName] };
 		}
-		else if(symbolTable[varExpr->VariableName]->getName().starts_with("func:")) // func check
+		else if(varExpr->isFunc) // func check
 		{
-			return { symbolTable[varExpr->VariableName], typedSymbolTable[varExpr->VariableName].type, semanticTypeTable[varExpr->VariableName] };
+			return { symbolTable["func:"+varExpr->VariableName], typedSymbolTable[varExpr->VariableName].type, semanticTypeTable[varExpr->VariableName]};
 		}
 
 		return { symbolTable[varExpr->VariableName], typedSymbolTable[varExpr->VariableName].type, semanticTypeTable[varExpr->VariableName] };

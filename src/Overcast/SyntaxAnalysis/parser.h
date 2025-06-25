@@ -14,12 +14,14 @@ namespace Overcast::Parser
 	{
 	public:
 		explicit Parser(std::vector<Token>& tokens)
-			: Tokens(tokens), currentToken(tokens.begin()) {
+			: Tokens(&tokens), currentToken(tokens.begin()) {
 		}
+
+		Parser() = default;
 
 		std::vector<std::unique_ptr<Statement>> Parse();
 	private:
-		std::vector<Token>& Tokens;
+		std::vector<Token>* Tokens;
 		std::vector<Token>::iterator currentToken;
 
 		std::unique_ptr<Expression> ParseExpression(int precedence = 0);
@@ -59,7 +61,7 @@ namespace Overcast::Parser
 			nextToken += extra;
 
 			// If the next token is out of range, throw an exception
-			if (nextToken == Tokens.end()) {
+			if (nextToken == Tokens->end()) {
 				throw std::out_of_range("Reached end of tokens");
 			}
 
@@ -72,7 +74,7 @@ namespace Overcast::Parser
 
 		inline void NextToken()
 		{
-			if(currentToken != Tokens.end())
+			if(currentToken != Tokens->end())
 				++currentToken;
 		}
 

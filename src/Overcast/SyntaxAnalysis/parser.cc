@@ -4,9 +4,9 @@
 std::vector<std::unique_ptr<Statement>> Overcast::Parser::Parser::Parse()
 {
     std::vector<std::unique_ptr<Statement>> ResultVector;
-	if (!this->Tokens.empty())
+	if (!this->Tokens->empty())
 	{
-		while (currentToken != Tokens.end())
+		while (currentToken != Tokens->end())
 		{
 			ResultVector.push_back(std::move(ParseStatement()));
 		}
@@ -143,10 +143,16 @@ std::unique_ptr<Statement> Overcast::Parser::Parser::ParseStatement()
 			{
 				return ParseWhileStatement();
 			}
-			else if (currentToken->Lexeme == "use" || currentToken->Lexeme == "import") // import statement
+			else if (currentToken->Lexeme == "use") 
 			{
-				throw std::runtime_error("Import statements are not implemented yet.");
+                Match(TokenType::KEYWORD, "use");
+                return std::make_unique<UseStatement>(Match(TokenType::IDENTIFIER).Lexeme);
 			}
+            else if (currentToken->Lexeme == "package")
+            {
+                Match(TokenType::KEYWORD, "package");
+                return std::make_unique<PackageDeclStatement>(Match(TokenType::IDENTIFIER).Lexeme);
+            }
             break;
         }
         case TokenType::IDENTIFIER:
@@ -479,7 +485,7 @@ std::string getTokenName(TokenType tok)
 }
 
 const Token& Overcast::Parser::Parser::Match(TokenType type) {
-    if (currentToken != Tokens.end() && currentToken->Type == type) {
+    if (currentToken != Tokens->end() && currentToken->Type == type) {
         const Token& toReturn = *currentToken;
         NextToken();
         return toReturn;
@@ -489,7 +495,7 @@ const Token& Overcast::Parser::Parser::Match(TokenType type) {
 }
 
 const Token& Overcast::Parser::Parser::Match(TokenType type, const std::string& value) {
-    if (currentToken != Tokens.end() && currentToken->Type == type && currentToken->Lexeme == value) {
+    if (currentToken != Tokens->end() && currentToken->Type == type && currentToken->Lexeme == value) {
         const Token& toReturn = *currentToken;
         NextToken();
         return toReturn;

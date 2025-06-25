@@ -51,13 +51,19 @@ void InitLexer(const std::string& text)
 		}
 	}
 }
+
+std::mutex lexer_mutex;
 std::vector<Token>& LexAll(const std::string& text)
 {
-	try {
-		InitLexer(text);
-		return tokens;
-	} catch (const std::exception& e) {
-		std::cerr << "Error: " << e.what() << std::endl;
-		return tokens;
+	{
+		std::lock_guard<std::mutex> lock(lexer_mutex);
+		try {
+			InitLexer(text);
+			return tokens;
+		}
+		catch (const std::exception& e) {
+			std::cerr << "Error: " << e.what() << std::endl;
+			return tokens;
+		}
 	}
 }

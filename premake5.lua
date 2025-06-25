@@ -16,7 +16,7 @@ project "Overcast" -- compiler project
    
    targetdir "bin/%{cfg.buildcfg}"
 
-   files { "src/Overcast/**.h", "src/Overcast/**.cc" }
+   files { "src/Overcast/**.h", "src/Overcast/**.hpp", "src/Overcast/**.cc" }
 
    includedirs { "src", "src/Overcast", "vendors/llvm-project/build/include", "vendors/llvm-project/llvm/include" }
 

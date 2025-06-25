@@ -100,6 +100,10 @@ void Overcast::Semantic::Binder::Binder::BindStatement(const Statement& stmt)
 		}
 		break;
 	}
+	case Statement::Type::Use:
+		break;
+	case Statement::Type::PackageDecl:
+		break;
 	default:
 	{
 		throw std::runtime_error("Unsupported statement type for binding.");
@@ -118,14 +122,38 @@ void Overcast::Semantic::Binder::Binder::BindFunctionDecl(const FunctionDeclStat
 		funcSymbol.ParamTypeNames.push_back(param.ParameterType->to_string());
 	}
 
+	bool passAdd = false;
+
 	Symbol existingSymbol;
 	if (LookupSymbol(funcDecl.FuncName, existingSymbol))
 	{
-		if(!funcDecl.IsStructMember)
+		// if the sigs match, then prob just global table conflict:
+		if (funcDecl.Parameters.size() != existingSymbol.ParamTypes.size() && !existingSymbol.IsStructMemberFunc) // obv no match
+		{
+			throw std::runtime_error("Function " + funcDecl.FuncName + " is already defined in this module.");
+		}
+
+		bool noMatch = true;
+		int idx = 0;
+		for (const auto& param : existingSymbol.ParamTypes)
+		{
+			if (param->to_string() != funcDecl.Parameters[idx].ParameterType->to_string())
+			{
+				noMatch = false;
+			}
+			idx++;
+		}
+
+		if (noMatch)
+		{
+			passAdd = true;
+		}
+
+		if(!funcDecl.IsStructMember && !passAdd)
 			throw std::runtime_error("Function " + funcDecl.FuncName + " is already defined in this module.");
 	}
 
-	if (!funcDecl.IsStructMember)
+	if (!funcDecl.IsStructMember && !passAdd)
 		this->Scopes.back().AddSymbol(funcSymbol);
 
 	this->EnterScope();

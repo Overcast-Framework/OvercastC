@@ -7,6 +7,7 @@
 
 #include "Overcast/SyntaxAnalysis/statements.h"
 #include "Overcast/SyntaxAnalysis/expressions.h"
+#include "Overcast/SemanticAnalysis/binder.h"
 
 namespace llvm {
 	class LLVMContext;
@@ -90,7 +91,7 @@ namespace Overcast::CodeGen {
 	public:
 		~CGEngine();
 
-		llvm::Module* Generate(const std::vector<std::unique_ptr<Statement>>& statements);
+		llvm::Module* Generate(std::unordered_map<std::string, Overcast::Semantic::Binder::Symbol> globalSymbols, const std::vector<std::unique_ptr<Statement>>& statements);
 		void EmitToObjectFile(const std::string& outputFile, llvm::Module* module);
 
 		CGEngine(const std::string& moduleName)

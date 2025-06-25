@@ -1,6 +1,13 @@
 #pragma once
 #include <iostream>
 #include <sstream>
+#include <future>
+#include <unordered_map>
+#include <filesystem>
+#include "Overcast/lexer.h"
+#include "Overcast/SyntaxAnalysis/parser.h"
+#include "Overcast/SemanticAnalysis/binder.h"
+#include "Overcast/CodeGen/CGEngine.h"
 
 namespace Overcast::ProjectSystem
 {
@@ -90,5 +97,97 @@ namespace Overcast::ProjectSystem
 
 		std::string SerializeTOML();
 		static Project LoadFromTOML(std::string toml);
+	};
+
+	struct BuildResult
+	{
+		enum class BuildState { SUCCESS, FAILURE } State;
+		std::string BuildMessage;
+		std::string ObjectFilePath;
+		std::vector<std::unique_ptr<Statement>> ASTresult;
+		std::unordered_map<std::string, Overcast::Semantic::Binder::Symbol> GlobalSymbols;
+
+		bool IsSuccess() const
+		{
+			return State == BuildState::SUCCESS;
+		}
+
+		std::string GetErrors() const
+		{
+			return BuildMessage;
+		}
+
+		// Constructor(s)
+		BuildResult(BuildState state, std::string buildMessage, std::string objectFilePath, std::vector<std::unique_ptr<Statement>>&& astRes)
+			: State(state), BuildMessage(std::move(buildMessage)), ObjectFilePath(std::move(objectFilePath)), ASTresult(std::move(astRes)) {
+		}
+
+		BuildResult(BuildState state, std::string buildMessage)
+			: State(state), BuildMessage(std::move(buildMessage)), ObjectFilePath(""), ASTresult() {
+		}
+
+		BuildResult(BuildState state)
+			: State(state), BuildMessage(""), ObjectFilePath(""), ASTresult() {
+		}
+
+		// Explicitly delete copy operations
+		BuildResult(const BuildResult&) = delete;
+		BuildResult& operator=(const BuildResult&) = delete;
+
+		// Explicitly allow move operations
+		BuildResult(BuildResult&&) noexcept = default;
+		BuildResult& operator=(BuildResult&&) noexcept = default;
+	};
+
+	class BuildProcess
+	{
+	public:
+		std::string buildFilePath;
+		Overcast::Parser::Parser parser;
+
+		std::mutex coutMutex;
+
+		bool EmitLLVM = false;
+
+		std::shared_ptr<BuildResult> Build();
+
+		bool IsComplete()
+		{
+			return _isBuildComplete;
+		}
+
+		BuildProcess(const std::string& filePath) : 
+			buildFilePath(filePath)
+		{}
+	private:
+		bool _isBuildComplete = false;
+	};
+
+	class ThreadPool
+	{
+	private:
+		std::vector<std::thread> workers;
+		std::queue<std::function<void()>> tasks;
+
+		std::mutex queueMutex;
+		std::condition_variable condition;
+		bool stop = false;
+
+		std::atomic<int> tasksInProgress{ 0 };
+	public:
+		ThreadPool(uint32_t numThreads);
+		~ThreadPool();
+		std::shared_future<std::shared_ptr<BuildResult>> Submit(std::function<std::shared_ptr<BuildResult>()> task);
+		void WaitAll();
+	};
+
+	class BuildSystem
+	{
+	private:
+		std::unordered_map<std::string, std::shared_ptr<BuildProcess>> processes;
+		std::unordered_map<std::string, std::vector<std::string>> dependencies;
+	public:
+		void AddBuildFile(const std::string& file, const std::vector<std::string>& deps);
+		BuildResult RunBuild(std::string projectName, uint32_t numThreads = std::thread::hardware_concurrency());
 	};
 };

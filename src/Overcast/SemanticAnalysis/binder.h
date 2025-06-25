@@ -24,6 +24,7 @@ namespace Overcast::Semantic::Binder
 
 		int ParamCount = 0; // for functions
 		std::vector<std::string> ParamTypeNames; // for functions, names of parameters
+		std::vector<OCType*> ParamTypes;
 		std::vector<Symbol> StructSymbols; // for structs, members of the struct
 		bool Variadic = false;
 		bool IsStructMemberFunc = false;
@@ -60,7 +61,6 @@ namespace Overcast::Semantic::Binder
 	public:
 		void Run(const std::vector<std::unique_ptr<Statement>>& statements)
 		{
-			EnterScope();
 			Symbol printFunc("print", SymbolKind::Function, new IdentifierType("int"));
 			printFunc.Variadic = true;
 
@@ -71,6 +71,19 @@ namespace Overcast::Semantic::Binder
 				BindStatement(*statement);
 			}
 			ExitScope();
+		}
+
+		Binder()
+		{
+			EnterScope();
+		}
+		Binder(std::unordered_map<std::string, Symbol> globalSymbols)
+		{
+			EnterScope();
+			for (const auto& s : globalSymbols)
+			{
+				this->Scopes.back().AddSymbol(s.second);
+			}
 		}
 	private:
 		std::vector<Scope> Scopes;

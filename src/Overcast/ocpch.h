@@ -6,7 +6,12 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <thread>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 #include <functional>
+#include <atomic>
 #include <algorithm>
 
 // LLVM core includes
@@ -40,3 +45,6 @@
 #include "llvm/Support/Error.h"       
 
 #include "ProjectSystem/toml.hpp"
+#include "cxxopts.hpp"
+
+#define OVERCAST_C_VER "1.0.0" // overcast compiler version (hope to GOD I don't forget to update this one)

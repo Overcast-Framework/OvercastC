@@ -16,6 +16,8 @@ public:
 		Assignment,
 		If,
 		While,
+		PackageDecl,
+		Use,
 		StructDecl,
 		Expression // As in Expression Statements
 	};
@@ -170,6 +172,28 @@ public:
 	}
 
 	ConstDeclStatement() = default;
+};
+
+class PackageDeclStatement : public Statement
+{
+public:
+	std::string packageName;
+
+	PackageDeclStatement(std::string pkgName)
+		: packageName(pkgName), Statement{ Type::PackageDecl }
+	{
+	}
+};
+
+class UseStatement : public Statement
+{
+public:
+	std::string packageName;
+
+	UseStatement(std::string pkgName)
+		: packageName(pkgName), Statement{ Type::Use }
+	{
+	}
 };
 
 class ReturnStatement : public Statement
