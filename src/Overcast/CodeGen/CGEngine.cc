@@ -397,22 +397,27 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateVarSet(const AssignmentStateme
 }
 #pragma optimize("", on)
 
-llvm::Value* Overcast::CodeGen::CGEngine::GenerateIfStatement(const IfStatement& ifStmt)
+llvm::Value* Overcast::CodeGen::CGEngine::GenerateIfStatement(
+	const IfStatement& ifStmt,
+	llvm::BasicBlock* mergeBlock)
 {
 	llvm::Value* condition = GenerateExpression(*ifStmt.Condition.get()).value;
 
-	if (!condition->getType()->isIntegerTy(1)) // must be bool (i1)
-	{
+	if (!condition->getType()->isIntegerTy(1)) {
 		throw std::runtime_error("Condition in if statement must be of type bool.");
 	}
 
 	llvm::Function* function = builder.GetInsertBlock()->getParent();
 
+	if (!mergeBlock) {
+		mergeBlock = llvm::BasicBlock::Create(context, "ifcont", function);
+	}
+
 	llvm::BasicBlock* thenBlock = llvm::BasicBlock::Create(context, "then", function);
 	llvm::BasicBlock* elseBlock = nullptr;
-	llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(context, "ifcont", function);
+	bool hasElse = !ifStmt.ElseBody.empty();
 
-	if (!ifStmt.ElseBody.empty()) {
+	if (hasElse) {
 		elseBlock = llvm::BasicBlock::Create(context, "else", function);
 		builder.CreateCondBr(condition, thenBlock, elseBlock);
 	}
@@ -422,18 +427,28 @@ llvm::Value* Overcast::CodeGen::CGEngine::GenerateIfStatement(const IfStatement&
 
 	builder.SetInsertPoint(thenBlock);
 	for (auto& stmt : ifStmt.Body) {
-		GenerateStatement(*stmt);
+		if (auto* nestedIf = dynamic_cast<IfStatement*>(stmt.get())) {
+			GenerateIfStatement(*nestedIf, mergeBlock);
+		}
+		else {
+			GenerateStatement(*stmt);
+		}
 	}
-	if (!thenBlock->getTerminator()) {
+	if (!builder.GetInsertBlock()->getTerminator()) {
 		builder.CreateBr(mergeBlock);
 	}
 
-	if (elseBlock) {
+	if (hasElse) {
 		builder.SetInsertPoint(elseBlock);
 		for (auto& stmt : ifStmt.ElseBody) {
-			GenerateStatement(*stmt);
+			if (auto* nestedIf = dynamic_cast<IfStatement*>(stmt.get())) {
+				GenerateIfStatement(*nestedIf, mergeBlock);
+			}
+			else {
+				GenerateStatement(*stmt);
+			}
 		}
-		if (!elseBlock->getTerminator()) {
+		if (!builder.GetInsertBlock()->getTerminator()) {
 			builder.CreateBr(mergeBlock);
 		}
 	}

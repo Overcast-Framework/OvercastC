@@ -79,7 +79,7 @@ namespace Overcast::CodeGen {
 		llvm::Value* GenerateStructDecl(const StructDeclStatement& strDecl);
 		llvm::Value* GenerateVarDecl(const VariableDeclStatement& varDecl);
 		llvm::Value* GenerateVarSet(const AssignmentStatement& varSet);
-		llvm::Value* GenerateIfStatement(const IfStatement& ifStmt);
+		llvm::Value* GenerateIfStatement(const IfStatement& ifStmt, llvm::BasicBlock* mergeBlock = nullptr);
 		std::string AnalyzeExpression(Expression& expression);
 		std::vector<PhiVariable> AnalyzePHIVariables(const std::vector<std::unique_ptr<Statement>>& statements);
 		llvm::Value* GenerateWhileStatement(const WhileStatement& whStmt, llvm::BasicBlock* parentCondition = nullptr);
