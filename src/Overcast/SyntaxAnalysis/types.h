@@ -1,5 +1,8 @@
 #pragma once
 #include <iostream>
+#include <json.hpp>
+
+using json = nlohmann::json;
 
 class IdentifierType; // forward declare
 
@@ -18,6 +21,18 @@ public:
 	OCType() = default;
 	virtual std::unique_ptr<OCType> clone() const = 0;
 	virtual IdentifierType *getBaseType() = 0;
+	virtual std::string getKind() const = 0;
+
+	void to_json(json& j, const OCType& t) {
+		j = json{
+			{"Type", t.getKind()},
+			{"Id", t.to_string()}
+		};
+	}
+
+	std::unique_ptr<OCType> from_json_type(const json& j) {
+		
+	}
 };
 
 class IdentifierType : public OCType
@@ -31,6 +46,11 @@ public:
 	std::string to_string() const override
 	{
 		return this->TypeName;
+	}
+
+	std::string getKind() const override
+	{
+		return "Identifier";
 	}
 
 	std::unique_ptr<OCType> clone() const override {
@@ -83,6 +103,11 @@ public:
 	std::string to_string() const override
 	{
 		return this->OfType->to_string() + "*";
+	}
+
+	std::string getKind() const override
+	{
+		return "Pointer";
 	}
 
 	std::unique_ptr<OCType> clone() const override {

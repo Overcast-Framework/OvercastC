@@ -72,6 +72,7 @@ class FunctionDeclStatement : public Statement
 public:
 	std::string FuncName;
 	bool IsExtern = false;
+	bool IsExport = false;
 	std::unique_ptr<OCType> ReturnType;
 	std::vector<Parameter> Parameters;
 	std::vector<std::unique_ptr<Statement>> Body;

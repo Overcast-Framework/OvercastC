@@ -1,6 +1,8 @@
 #include "ocpch.h"
 #include "project_system.h"
+#include <json.hpp>
 
+using json = nlohmann::json;
 using namespace std::literals;
 
 std::string Overcast::ProjectSystem::Project::SerializeTOML()
@@ -92,20 +94,23 @@ std::shared_ptr<Overcast::ProjectSystem::BuildResult> Overcast::ProjectSystem::B
         {
             if (auto funcDecl = dynamic_cast<FunctionDeclStatement*>(stmt.get()))
             {
-                Overcast::Semantic::Binder::Symbol funcSymbol;
-                funcSymbol.Name = funcDecl->FuncName;
-                funcSymbol.Type = funcDecl->ReturnType.get();
-                funcSymbol.ParamCount = funcDecl->Parameters.size();
-                
-                for (const auto& p : funcDecl->Parameters)
+                if (funcDecl->IsExport)
                 {
-                    funcSymbol.ParamTypeNames.push_back(p.ParameterType->to_string());
-                    funcSymbol.ParamTypes.push_back(p.ParameterType.get());
+                    Overcast::Semantic::Binder::Symbol funcSymbol;
+                    funcSymbol.Name = funcDecl->FuncName;
+                    funcSymbol.Type = funcDecl->ReturnType.get();
+                    funcSymbol.ParamCount = funcDecl->Parameters.size();
+
+                    for (const auto& p : funcDecl->Parameters)
+                    {
+                        funcSymbol.ParamTypeNames.push_back(p.ParameterType->to_string());
+                        funcSymbol.ParamTypes.push_back(p.ParameterType.get());
+                    }
+
+                    funcSymbol.Kind = Overcast::Semantic::Binder::SymbolKind::Function;
+
+                    symbols[funcDecl->FuncName] = funcSymbol;
                 }
-
-                funcSymbol.Kind = Overcast::Semantic::Binder::SymbolKind::Function;
-
-                symbols[funcDecl->FuncName] = funcSymbol;
             }
             else if (auto structDecl = dynamic_cast<StructDeclStatement*>(stmt.get()))
             {
@@ -213,7 +218,7 @@ bool clangExists() {
     return std::system(fallbackPath.c_str()) == 0;
 }
 
-Overcast::ProjectSystem::BuildResult Overcast::ProjectSystem::BuildSystem::RunBuild(std::string projectName, uint32_t numThreads)
+Overcast::ProjectSystem::BuildResult Overcast::ProjectSystem::BuildSystem::RunBuild(Project project, uint32_t numThreads)
 {
     std::vector<std::shared_ptr<BuildProcess>> nonDeps;
     std::vector<std::shared_ptr<BuildProcess>> deps;
@@ -304,6 +309,7 @@ Overcast::ProjectSystem::BuildResult Overcast::ProjectSystem::BuildSystem::RunBu
     }
 
     std::filesystem::path cwd = std::filesystem::current_path();
+    std::vector <llvm::Module*> projectModules;
 
     for (const auto& fileAST : FileASTs)
     {
@@ -314,6 +320,7 @@ Overcast::ProjectSystem::BuildResult Overcast::ProjectSystem::BuildSystem::RunBu
         auto* module = codeGen.Generate(GlobalSymbolTable, fileAST.second);
 
         //module->print(llvm::errs(), nullptr);
+        projectModules.push_back(module);
         codeGen.EmitToObjectFile((cwd / "obj" / (std::filesystem::path(fileAST.first).filename().string() + ".obj")).string(), module);
         std::cout << fileAST.first << " -> " << (std::filesystem::path(fileAST.first).filename().string() + ".obj") << std::endl;
     }
@@ -337,14 +344,14 @@ Overcast::ProjectSystem::BuildResult Overcast::ProjectSystem::BuildSystem::RunBu
 
     if (clangExists())
     {
-        std::string cmd = "clang " + allFiles + "-o bin/" + projectName + exeExt;
+        std::string cmd = "clang " + allFiles + "-o bin/" + project.ProjectName + exeExt;
         if (std::system(cmd.c_str()) == EXIT_FAILURE)
         {
             std::cerr << "Failed to link project" << std::endl;
             return { BuildResult::BuildState::FAILURE, "failed to link project files" };
         }
 
-        std::cout << projectName + " -> " + projectName + exeExt;
+        std::cout << project.ProjectName + " -> " + project.ProjectName + exeExt;
     }
     else
     {

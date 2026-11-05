@@ -5,6 +5,9 @@
 #include <string>
 #include "Overcast/SyntaxAnalysis/statements.h"
 #include "Overcast/SyntaxAnalysis/expressions.h"
+#include <json.hpp>
+
+using json = nlohmann::json;
 
 namespace Overcast::Semantic::Binder
 {
@@ -28,6 +31,9 @@ namespace Overcast::Semantic::Binder
 		std::vector<Symbol> StructSymbols; // for structs, members of the struct
 		bool Variadic = false;
 		bool IsStructMemberFunc = false;
+
+		static void to_json(json& j, const Symbol& value);
+		static void from_json(const json& j, Symbol& value);
 
 		Symbol() : Name(""), Kind(SymbolKind::Variable), Type(nullptr) {}
 		Symbol(const std::string& name, SymbolKind kind, OCType* type)

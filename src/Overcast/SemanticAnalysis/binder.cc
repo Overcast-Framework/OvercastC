@@ -445,3 +445,34 @@ Overcast::Semantic::Binder::Symbol Overcast::Semantic::Binder::Binder::BindStruc
 
 	return *it;
 }
+
+void Overcast::Semantic::Binder::Symbol::to_json(json& j, const Symbol& value)
+{
+	json paramTypesJson = json::array();
+
+	for (const OCType* t : value.ParamTypes) {
+		if (t) {
+			paramTypesJson.push_back(*t);  // if you have to_json(json&, const OCType&)
+		}
+		else {
+			paramTypesJson.push_back(nullptr);
+		}
+	}
+
+	j = json{
+		{"name", value.Name},
+		{"kind", (int)value.Kind},
+		{"type", *value.Type},
+		{"paramCount", value.ParamCount},
+		{"paramTypeNames", value.ParamTypeNames},
+		{"paramTypes", value.ParamTypes},
+		{"structSymbols", value.StructSymbols},
+		{"variadic", value.Variadic},
+		{"isStructMemberFunc", value.IsStructMemberFunc}
+	};
+}
+
+void Overcast::Semantic::Binder::Symbol::from_json(const json& j, Symbol& value)
+{
+
+}

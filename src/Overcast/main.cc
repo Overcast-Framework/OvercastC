@@ -90,7 +90,7 @@ void build_project(std::string projectName, int threadCount)
 	}
 
 	std::cout << "Building..." << std::endl;
-	auto buildResult = buildSystem.RunBuild(project.ProjectName);
+	auto buildResult = buildSystem.RunBuild(project);
 	std::cout << buildResult.BuildMessage << std::endl;
 	if (!buildResult.IsSuccess())
 	{

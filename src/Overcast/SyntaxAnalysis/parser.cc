@@ -119,7 +119,7 @@ std::unique_ptr<Statement> Overcast::Parser::Parser::ParseStatement()
     {
         case TokenType::KEYWORD:
         {
-            if (currentToken->Lexeme == "func" || currentToken->Lexeme == "extern") // function decl statement
+            if (currentToken->Lexeme == "func" || currentToken->Lexeme == "export" || currentToken->Lexeme == "extern") // function decl statement
             {
                 return ParseFunctionDeclStatement();
             }
@@ -230,11 +230,18 @@ std::unique_ptr<FunctionDeclStatement> Overcast::Parser::Parser::ParseFunctionDe
 {
     // keyword identifier '(' params?... ')' arrow(->) (body?) (;?)
     bool externFunc = false;
+    bool exportFunc = false;
 	if (currentToken->Lexeme == "extern")
 	{
 		Match(TokenType::KEYWORD, "extern");
         externFunc = true;
 	}
+    else if (currentToken->Lexeme == "export")
+    {
+        Match(TokenType::KEYWORD, "export");
+        Match(TokenType::KEYWORD, "func");
+        exportFunc = true;
+    }
     else
     {
         Match(TokenType::KEYWORD, "func");
@@ -265,15 +272,17 @@ std::unique_ptr<FunctionDeclStatement> Overcast::Parser::Parser::ParseFunctionDe
     if (!externFunc)
     {
         auto body = ParseBlockStatement();
-        return std::make_unique<FunctionDeclStatement>(name, std::move(returnType), params, std::move(body));
+        auto func = std::make_unique<FunctionDeclStatement>(name, std::move(returnType), params, std::move(body));
+        func->IsExport = exportFunc;
+        return func;
     }
     else
     {
 		Match(TokenType::SYMBOL, ";"); // extern functions end with a semicolon
         auto func = std::make_unique<FunctionDeclStatement>(name, std::move(returnType), params, std::vector<std::unique_ptr<Statement>>());
-		func->IsExtern = true;
+		func->IsExtern = externFunc;
 
-		return std::move(func);
+		return func;
     }
 }
 

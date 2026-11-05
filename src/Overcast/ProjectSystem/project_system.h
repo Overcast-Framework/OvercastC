@@ -188,6 +188,6 @@ namespace Overcast::ProjectSystem
 		std::unordered_map<std::string, std::vector<std::string>> dependencies;
 	public:
 		void AddBuildFile(const std::string& file, const std::vector<std::string>& deps);
-		BuildResult RunBuild(std::string projectName, uint32_t numThreads = std::thread::hardware_concurrency());
+		BuildResult RunBuild(Project project, uint32_t numThreads = std::thread::hardware_concurrency());
 	};
 };
